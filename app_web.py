@@ -83,25 +83,22 @@ ADMIN_PIN  = "Ana1984"
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-from sqlalchemy import create_engine, URL
+from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 
-# 1. بناء الرابط بشكل آمن ومنفصل لحماية الرموز الخاصة
+# 1. بناء الرابط بشكل آمن ومنفصل تماماً لمنع تداخل رموز كلمة المرور
 connection_url = URL.create(
     drivername="mysql+mysqlconnector",
     username=MYSQL_USER,
     password=MYSQL_PASS,
     host=MYSQL_HOST,
-    port=MYSQL_PORT,
+    port=int(MYSQL_PORT),  # التأكيد على تحويل المنفذ لرقم صحيح
     database=MYSQL_DB
 )
 
-from sqlalchemy import create_engine
-
-# صياغة مباشرة لنص الاتصال مع تضمين المنفذ بدقة تامة لتفادي المنفذ الافتراضي
-DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
-
+# 2. إنشاء المحرك المطور للـ Cloud باستخدام الرابط الآمن
 engine = create_engine(
-    DATABASE_URL,
+    connection_url,
     pool_size=5, 
     max_overflow=10, 
     pool_recycle=1800, 
