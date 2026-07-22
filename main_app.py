@@ -61,24 +61,31 @@ engine = create_engine(DATABASE_URL, pool_size=5, max_overflow=10, pool_recycle=
 mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT)
 
 # ================== تهيئة الخطوط والستايلات ==================
+# ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
 style_h1 = ParagraphStyle("H1", fontName="Helvetica", fontSize=18, alignment=1, spaceAfter=20, textColor=colors.blue)
 style_sign = ParagraphStyle("Sign", fontName="Helvetica", fontSize=11, alignment=2)
 
 try:
+    # 1. البحث عن الخط في المجلد الحالي للمستودع (مناسب للسحاب)
     font_path = "arial.ttf"
-    if not os.path.exists(font_path):
+    
+    # 2. خطوة احتياطية إذا كنت تجرّب الكود محلياً على الويندوز
+    if not os.path.exists(font_path) and platform.system() == "Windows":
         font_path = r"C:\Windows\Fonts\arial.ttf"
     
+    # 3. تسجيل الخط وتفعيله
     if os.path.exists(font_path):
         pdfmetrics.registerFont(TTFont("ArabicFont", font_path))
         style_normal.fontName = "ArabicFont"
         style_h1.fontName = "ArabicFont"
         style_sign.fontName = "ArabicFont"
     else:
-        st.error(f"❌ ملف الخط arial.ttf غير موجود.")
+        # تحذير ذكي بدلاً من st.error لحماية التطبيق من الإغلاق والانهيار الكامل
+        st.warning("⚠️ لم يتم العثور على ملف arial.ttf في السحاب، سيتم استخدام الخط الافتراضي مؤقتاً لتوليد الـ PDF.")
 except Exception as e:
-    st.error(f"❌ خطأ في تحميل الخطوط: {e}")
+    st.write(f"⚠️ تنبيه بخصوص الخطوط: {e}")
+
 UPLOAD_FOLDER = "supplier_uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
