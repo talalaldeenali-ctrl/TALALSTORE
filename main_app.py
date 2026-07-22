@@ -4,8 +4,9 @@ import pandas as pd
 import mysql.connector
 from mysql.connector import Error as mysql_error
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL  # تم نقلها هنا في الأعلى ليتعرف عليها الكود فوراً
 import io
-import sys  # تمت إضافته لضمان عمل دوال فتح الملفات
+import sys  
 from datetime import datetime
 import os
 import shutil
@@ -29,12 +30,9 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_RIGHT, TA_LEFT, TA_CENTER
 import zipfile
-import streamlit as st
-import ctypes
 import platform
 import fitz
 from sqlalchemy import text
-
 
 # ==========================
 # دالة لتفعيل منع السكون
@@ -69,12 +67,10 @@ if st.session_state.get('user_role') == 'admin':
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# ================== الإعدادات وقاعدة البيانات ==================
 # ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-# ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com" 
+MYSQL_HOST = "://aivencloud.com" 
 MYSQL_USER = "avnadmin"
-MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
+MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"  
 MYSQL_DB   = "defaultdb"
 MYSQL_PORT = 19554
 ADMIN_PIN  = "Ana1984"
@@ -83,19 +79,25 @@ ADMIN_PIN  = "Ana1984"
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
+# 1. بناء الرابط بشكل آمن ومنفصل تماماً لمنع تداخل رموز كلمة المرور
 connection_url = URL.create(
     drivername="mysql+mysqlconnector",
     username=MYSQL_USER,
     password=MYSQL_PASS,
     host=MYSQL_HOST,
-    port=int(MYSQL_PORT),
+    port=int(MYSQL_PORT),  
     database=MYSQL_DB
 )
 
+# 2. إنشاء المحرك المطور للـ Cloud باستخدام الرابط الآمن
 engine = create_engine(
     connection_url,
-    pool_size=5, max_overflow=10, pool_recycle=1800, pool_pre_ping=True
+    pool_size=5, 
+    max_overflow=10, 
+    pool_recycle=1800, 
+    pool_pre_ping=True
 )
+
 # ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
 style_h1 = ParagraphStyle("H1", fontName="Helvetica", fontSize=18, alignment=1, spaceAfter=20, textColor=colors.blue)
