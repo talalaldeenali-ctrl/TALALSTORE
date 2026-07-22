@@ -4,7 +4,6 @@ import pandas as pd
 import mysql.connector
 from mysql.connector import Error as mysql_error
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL  # تم نقلها هنا في الأعلى ليتعرف عليها الكود فوراً
 import io
 import sys  
 from datetime import datetime
@@ -15,7 +14,6 @@ import subprocess
 import bcrypt
 from PIL import Image
 import base64
-import ctypes
 import time
 import atexit
 # مكتبات الـ PDF
@@ -34,36 +32,6 @@ import platform
 import fitz
 from sqlalchemy import text
 
-# ==========================
-# دالة لتفعيل منع السكون
-# ==========================
-def prevent_sleep():
-    if platform.system() == "Windows":
-        ES_CONTINUOUS = 0x80000000
-        ES_SYSTEM_REQUIRED = 0x00000001
-        ES_DISPLAY_REQUIRED = 0x00000002
-        ctypes.windll.kernel32.SetThreadExecutionState(
-            ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED
-        )
-
-# ==========================
-# دالة لإعادة النظام لوضعه الطبيعي
-# ==========================
-def allow_sleep():
-    if platform.system() == "Windows":
-        ES_CONTINUOUS = 0x80000000
-        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
-
-# ==========================
-# تفعيل منع السكون تلقائيًا للمسؤول
-# ==========================
-if st.session_state.get('user_role') == 'admin':
-    if "sleep_prevented" not in st.session_state or not st.session_state.sleep_prevented:
-        prevent_sleep()
-        st.session_state.sleep_prevented = True
-
-    st.info("💡 تم تفعيل منع السكون تلقائيًا. الكمبيوتر لن يدخل في وضع السكون أثناء تشغيل التطبيق.")
-
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -79,19 +47,11 @@ ADMIN_PIN  = "Ana1984"
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# 1. بناء الرابط بشكل آمن ومنفصل تماماً لمنع تداخل رموز كلمة المرور
-connection_url = URL.create(
-    drivername="mysql+mysqlconnector",
-    username=MYSQL_USER,
-    password=MYSQL_PASS,
-    host=MYSQL_HOST,
-    port=int(MYSQL_PORT),  
-    database=MYSQL_DB
-)
+# بناء رابط الاتصال المباشر والآمن للسحاب
+DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
 
-# 2. إنشاء المحرك المطور للـ Cloud باستخدام الرابط الآمن
 engine = create_engine(
-    connection_url,
+    DATABASE_URL,
     pool_size=5, 
     max_overflow=10, 
     pool_recycle=1800, 
