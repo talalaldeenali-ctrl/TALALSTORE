@@ -37,42 +37,27 @@ from sqlalchemy.engine import URL
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-MYSQL_HOST = "://aivencloud.com" 
+# ================== إعدادات قاعدة البيانات السحابية الموحدة والمحمية ==================
+# تم تصحيح الرابط المبتور ووضع الرابط السحابي الكامل الخاص بك هنا:
+MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com" 
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"  
 MYSQL_DB   = "defaultdb"
-MYSQL_PORT = 19554
+MYSQL_PORT = 19554  
 ADMIN_PIN  = "Ana1984"
 
-# إنشاء المجلدات الضرورية
+# إنشاء المجلدات الضرورية للمشروع
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
+# 1. إصلاح مكتبة SQLAlchemy
+DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+engine = create_engine(DATABASE_URL, pool_size=5, max_overflow=10, pool_recycle=1800, pool_pre_ping=True)
 
-# قراءة بيانات الاتصال السحابية بشكل آمن من إعدادات Secrets
-MYSQL_HOST = st.secrets["mysql"]["host"]
-MYSQL_USER = st.secrets["mysql"]["user"]
-MYSQL_PASS = st.secrets["mysql"]["password"]
-MYSQL_DB   = st.secrets["mysql"]["database"]
-MYSQL_PORT = st.secrets["mysql"]["port"]
-
-# بناء الرابط المعزول لضمان قراءة الرموز والمنفذ بدقة
-connection_url = URL.create(
-    drivername="mysql+mysqlconnector",
-    username=MYSQL_USER,
-    password=MYSQL_PASS,
-    host=MYSQL_HOST,
-    port=int(MYSQL_PORT),
-    database=MYSQL_DB
-)
-
-engine = create_engine(
-    connection_url,
-    pool_size=5, 
-    max_overflow=10, 
-    pool_recycle=1800, 
-    pool_pre_ping=True
-)
+# 2. حيلة ذكية لإصلاح مكتبة mysql.connector التقليدية في بقية الملف
+import mysql.connector
+from functools import partial
+mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT)
 
 # ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
