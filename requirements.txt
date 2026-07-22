@@ -1,0 +1,10 @@
+streamlit
+pandas
+mysql-connector-python
+sqlalchemy
+bcrypt
+PyMuPDF
+arabic-reshaper
+python-bidi
+reportlab
+pillow
