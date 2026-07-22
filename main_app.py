@@ -31,6 +31,7 @@ import zipfile
 import platform
 import fitz
 from sqlalchemy import text
+from sqlalchemy.engine import URL
 
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -47,20 +48,24 @@ ADMIN_PIN  = "Ana1984"
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# تأكد من استيراد مكتبة الـ URL في السطور الأولى أو هنا مباشرة
-from sqlalchemy.engine import URL
 
-# 1. بناء الرابط بشكل آمن ومنفصل تماماً لمنع تداخل رموز كلمة المرور
+# قراءة بيانات الاتصال السحابية بشكل آمن من إعدادات Secrets
+MYSQL_HOST = st.secrets["mysql"]["host"]
+MYSQL_USER = st.secrets["mysql"]["user"]
+MYSQL_PASS = st.secrets["mysql"]["password"]
+MYSQL_DB   = st.secrets["mysql"]["database"]
+MYSQL_PORT = st.secrets["mysql"]["port"]
+
+# بناء الرابط المعزول لضمان قراءة الرموز والمنفذ بدقة
 connection_url = URL.create(
     drivername="mysql+mysqlconnector",
     username=MYSQL_USER,
     password=MYSQL_PASS,
     host=MYSQL_HOST,
-    port=int(MYSQL_PORT),  # تحويل صريح لرقم صحيح لتخطي الخطأ الحالي
+    port=int(MYSQL_PORT),
     database=MYSQL_DB
 )
 
-# 2. إنشاء المحرك المطور للـ Cloud باستخدام الرابط المعزول
 engine = create_engine(
     connection_url,
     pool_size=5, 
