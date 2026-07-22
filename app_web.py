@@ -95,15 +95,18 @@ connection_url = URL.create(
     database=MYSQL_DB
 )
 
-# 2. إنشاء المحرك باستخدام الرابط الآمن
+from sqlalchemy import create_engine
+
+# صياغة مباشرة لنص الاتصال مع تضمين المنفذ بدقة تامة لتفادي المنفذ الافتراضي
+DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+
 engine = create_engine(
-    connection_url,
+    DATABASE_URL,
     pool_size=5, 
     max_overflow=10, 
     pool_recycle=1800, 
     pool_pre_ping=True
 )
-
 
 # ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
