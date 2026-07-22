@@ -32,6 +32,7 @@ import platform
 import fitz
 from sqlalchemy import text
 from sqlalchemy.engine import URL
+from functools import partial
 
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -55,8 +56,8 @@ DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{
 engine = create_engine(DATABASE_URL, pool_size=5, max_overflow=10, pool_recycle=1800, pool_pre_ping=True)
 
 # 2. حيلة ذكية لإصلاح مكتبة mysql.connector التقليدية في بقية الملف
-import mysql.connector
-from functools import partial
+
+
 mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT)
 
 # ================== تهيئة الخطوط والستايلات ==================
