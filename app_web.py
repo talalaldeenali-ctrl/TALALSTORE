@@ -71,7 +71,8 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 # ================== الإعدادات وقاعدة البيانات ==================
 # ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-MYSQL_HOST = "://aivencloud.com" 
+# ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
+MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com" 
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
 MYSQL_DB   = "defaultdb"
@@ -82,21 +83,27 @@ ADMIN_PIN  = "Ana1984"
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# محرك SQLAlchemy المطور للـ Cloud
-engine = create_engine(
-    f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}",
-    pool_size=5, max_overflow=10, pool_recycle=1800, pool_pre_ping=True
+from sqlalchemy import create_engine, URL
+
+# 1. بناء الرابط بشكل آمن ومنفصل لحماية الرموز الخاصة
+connection_url = URL.create(
+    drivername="mysql+mysqlconnector",
+    username=MYSQL_USER,
+    password=MYSQL_PASS,
+    host=MYSQL_HOST,
+    port=MYSQL_PORT,
+    database=MYSQL_DB
 )
 
-# إنشاء المجلدات الضرورية
-for folder in ["assets", "invoice", "report", "backups", "uploads"]:
-    os.makedirs(folder, exist_ok=True)
-
-# محرك SQLAlchemy المطور (Pool) لضمان استقرار الاتصالات المتعددة عبر الشبكة
+# 2. إنشاء المحرك باستخدام الرابط الآمن
 engine = create_engine(
-    f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}/{MYSQL_DB}",
-    pool_size=10, max_overflow=20, pool_recycle=3600, pool_pre_ping=True
+    connection_url,
+    pool_size=5, 
+    max_overflow=10, 
+    pool_recycle=1800, 
+    pool_pre_ping=True
 )
+
 
 # ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
