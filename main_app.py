@@ -36,25 +36,25 @@ from functools import partial
 
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
-
 # ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-# ================== الإعدادات وقاعدة البيانات السحابية بالـ SSL ==================
 MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com" 
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
 MYSQL_DB   = "defaultdb"
-MYSQL_PORT = 19554  # المنفذ الصحيح والتقليدي لـ MySQL وليس 19558
+MYSQL_PORT = 19554  
 ADMIN_PIN  = "Ana1984"
 
-# إنشاء المجلدات الضرورية للمشروع
+# إنشاء المجلدات الضرورية
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# 1. إعداد محرك SQLAlchemy مع تفعيل الـ SSL الإلزامي لـ Aiven
+# الطريقة القياسية والحديثة لتمرير الـ SSL دون التسبب في خطأ Unsupported argument
 connect_args = {
-    "ssl_mode": "REQUIRED"
+    "ssl_verify_cert": False,
+    "ssl_verify_identity": False
 }
 
+# محرك SQLAlchemy المطور والمستقر للـ Cloud
 engine = create_engine(
     f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}",
     connect_args=connect_args,
@@ -64,11 +64,8 @@ engine = create_engine(
     pool_pre_ping=True
 )
 
-# 2. حيلة ذكية لضمان تفعيل الـ SSL والمنفذ في مكتبة mysql.connector التقليدية إذا استخدمتها بكودك
 
-mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT, ssl_mode="REQUIRED")
 
-# ================== تهيئة الخطوط والستايلات ==================
 # ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
 style_h1 = ParagraphStyle("H1", fontName="Helvetica", fontSize=18, alignment=1, spaceAfter=20, textColor=colors.blue)
