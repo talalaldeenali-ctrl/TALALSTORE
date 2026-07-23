@@ -36,7 +36,7 @@ from functools import partial
 
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
-# ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
+# ================== الإعدادات المحدثة لحل مشكلة التعليق ==================
 MYSQL_HOST = "143.244.204.60" 
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
@@ -44,26 +44,44 @@ MYSQL_DB   = "defaultdb"
 MYSQL_PORT = 19554  
 ADMIN_PIN  = "Ana1984"
 
-# إنشاء المجلدات الضرورية
+# إنشاء المجلدات الضرورية لضمان عدم تعليق السيرفر
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# الطريقة القياسية والحديثة لتمرير الـ SSL دون التسبب في خطأ Unsupported argument
+# إضافة مهلة اتصال (Connection Timeout) لمنع الحلقة الدائرية اللانهائية
 connect_args = {
-    "ssl_verify_cert": False,
-    "ssl_verify_identity": False
+    "ssl_disabled": False,
+    "connection_timeout": 10 # إذا لم يتصل خلال 10 ثوانٍ يخرج ويعطي الخطأ بدلاً من التعليق
 }
 
-# محرك SQLAlchemy المطور والمستقر للـ Cloud
 engine = create_engine(
     f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}",
     connect_args=connect_args,
     pool_size=5, 
     max_overflow=10, 
-    pool_recycle=1800, 
+    pool_recycle=600, # تقليل وقت إعادة التدوير لزيادة الاستقرار
     pool_pre_ping=True
 )
 
+def get_db_connection(include_db=True):
+    try:
+        # محاولة الاتصال عبر الـ Engine
+        return engine.raw_connection()
+    except Exception as e:
+        # خطة بديلة سريعة ومباشرة بدون تعليق
+        try:
+            return mysql.connector.connect(
+                host=MYSQL_HOST,
+                user=MYSQL_USER,
+                password=MYSQL_PASS,
+                database=MYSQL_DB if include_db else None,
+                port=MYSQL_PORT,
+                connection_timeout=5,
+                ssl_disabled=False
+            )
+        except Exception as err:
+            st.error(f"❌ عذرًا، فشل الاتصال بقاعدة البيانات: {err}")
+            return None
 
 
 # ================== تهيئة الخطوط والستايلات ==================
@@ -262,13 +280,6 @@ def get_user_menu_perms(user):
     res = [row[0] for row in c.fetchall()]
     conn.close()
     return res
-def get_db_connection(include_db=True):
-    try:
-        # استخدام محرك SQLAlchemy المستقر والجاهز للاتصال بالسحاب مباشرة
-        return engine.raw_connection()
-    except Exception as e:
-        st.error(f"Database Connection Error: {e}")
-        return None
 
 
 
