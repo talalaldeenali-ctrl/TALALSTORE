@@ -37,7 +37,7 @@ from functools import partial
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
 # ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com" 
+MYSQL_HOST = "143.244.204.60" 
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
 MYSQL_DB   = "defaultdb"
