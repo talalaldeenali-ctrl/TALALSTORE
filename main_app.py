@@ -65,8 +65,7 @@ engine = create_engine(
 )
 
 # 2. حيلة ذكية لضمان تفعيل الـ SSL والمنفذ في مكتبة mysql.connector التقليدية إذا استخدمتها بكودك
-import mysql.connector
-from functools import partial
+
 mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT, ssl_mode="REQUIRED")
 
 # ================== تهيئة الخطوط والستايلات ==================
