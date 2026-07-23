@@ -267,29 +267,11 @@ def get_user_menu_perms(user):
     return res
 def get_db_connection(include_db=True):
     try:
-        # الطريقة القياسية المتوافقة مع الإصدارات الحديثة لتفعيل الـ SSL في mysql.connector
-        config = {
-            'host': MYSQL_HOST, 
-            'user': MYSQL_USER, 
-            'password': MYSQL_PASS, 
-            'port': MYSQL_PORT,          # المنفذ السحابي 19554
-            'charset': 'utf8mb4'
-        }
-        if include_db: 
-            config['database'] = MYSQL_DB
-            
-        # تمرير الـ SSL كقاموس فرعي متوافق تماماً مع الإصدارات الجديدة والقديمة
-        config['ssl_pure'] = True 
-        config['client_flags'] = [mysql.connector.ClientFlag.SSL]
-        
-        return mysql.connector.connect(**config)
-    except mysql_error as e:
-        # إذا واجهت المكتبة التقليدية مشكلة، سنستخدم محرك SQLAlchemy المستقر كخطة بديلة (Fallback)
-        try:
-            return engine.raw_connection()
-        except:
-            st.error(f"Database Connection Error: {e}")
-            return None
+        # استخدام محرك SQLAlchemy المستقر والجاهز للاتصال بالسحاب مباشرة
+        return engine.raw_connection()
+    except Exception as e:
+        st.error(f"Database Connection Error: {e}")
+        return None
 
 
 
