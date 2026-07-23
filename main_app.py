@@ -36,53 +36,55 @@ from functools import partial
 
 # إخفاء تحذيرات Pandas 
 warnings.filterwarnings("ignore", category=UserWarning)
-# ================== الإعدادات المحدثة لحل مشكلة التعليق ==================
-MYSQL_HOST = "143.244.204.60" 
+# ================== الإعدادات وقاعدة البيانات السحابية الرسمية والثابتة ==================
+# إعادة الرابط النصي الرسمي الثابت الذي لا يتغير أبداً
+MYSQL_HOST = "mysql-108ceb4c-talalaldeenali-b880.k.aivencloud.com"
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
 MYSQL_DB   = "defaultdb"
 MYSQL_PORT = 19554  
 ADMIN_PIN  = "Ana1984"
 
-# إنشاء المجلدات الضرورية لضمان عدم تعليق السيرفر
+# إنشاء المجلدات الضرورية
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# إضافة مهلة اتصال (Connection Timeout) لمنع الحلقة الدائرية اللانهائية
+# تفعيل الإعدادات المتوافقة مع جدار حماية السحاب وبدون قيود الـ SSL
 connect_args = {
     "ssl_disabled": False,
-    "connection_timeout": 10 # إذا لم يتصل خلال 10 ثوانٍ يخرج ويعطي الخطأ بدلاً من التعليق
+    "connection_timeout": 30  # زيادة المهلة لـ 30 ثانية لتجنب الـ timeout أثناء الربط العالمي
 }
 
+# محرك SQLAlchemy المطور والمستقر للـ Cloud
 engine = create_engine(
     f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}",
     connect_args=connect_args,
     pool_size=5, 
     max_overflow=10, 
-    pool_recycle=600, # تقليل وقت إعادة التدوير لزيادة الاستقرار
+    pool_recycle=600, 
     pool_pre_ping=True
 )
 
+# دالة جلب الاتصال المعتمدة على الـ engine المطور مباشرة
 def get_db_connection(include_db=True):
     try:
-        # محاولة الاتصال عبر الـ Engine
         return engine.raw_connection()
     except Exception as e:
-        # خطة بديلة سريعة ومباشرة بدون تعليق
+        # خطة بديلة مباشرة باستخدام الرابط النصي والمهلة الموسعة
         try:
+            import mysql.connector
             return mysql.connector.connect(
                 host=MYSQL_HOST,
                 user=MYSQL_USER,
                 password=MYSQL_PASS,
                 database=MYSQL_DB if include_db else None,
                 port=MYSQL_PORT,
-                connection_timeout=5,
+                connection_timeout=30,
                 ssl_disabled=False
             )
         except Exception as err:
             st.error(f"❌ عذرًا، فشل الاتصال بقاعدة البيانات: {err}")
             return None
-
 
 # ================== تهيئة الخطوط والستايلات ==================
 style_normal = ParagraphStyle("NormalFont", fontName="Helvetica", fontSize=10, alignment=1)
