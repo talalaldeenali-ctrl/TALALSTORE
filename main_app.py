@@ -2184,21 +2184,6 @@ if st.session_state.get('logged_in', False):
                         st.success("✅ تم حفظ الإعدادات والشعارات السحابية بنجاح!")
                         st.rerun()
 
-# =========================================================
-# 🔹 إضافة كود الـ CSS في نهاية الملف لإخفاء أدوات المطورين وزر Fork
-# =========================================================
-hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .stAppDeployButton {display:none !important;}
-            [data-testid="stStatusWidget"] {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-
                 # ➕ إضافة مشروع جديد
                 # =================================================
                 st.divider()
@@ -3015,5 +3000,21 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # =========================================================
 # 📄 دالة توليد سند العهدة PDF (التعهد القانوني + إصلاح العلامة المائية)
 # =========================================================
+
+# =========================================================
+# 🔹 إضافة كود الـ CSS في نهاية الملف لإخفاء أدوات المطورين وزر Fork
+# =========================================================
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stAppDeployButton {display:none !important;}
+            [data-testid="stStatusWidget"] {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+
 
 
