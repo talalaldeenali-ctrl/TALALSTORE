@@ -38,27 +38,36 @@ from functools import partial
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ================== الإعدادات وقاعدة البيانات السحابية الجديدة ==================
-# ================== إعدادات قاعدة البيانات السحابية الموحدة والمحمية ==================
-# تم تصحيح الرابط المبتور ووضع الرابط السحابي الكامل الخاص بك هنا:
+# ================== الإعدادات وقاعدة البيانات السحابية بالـ SSL ==================
 MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com" 
 MYSQL_USER = "avnadmin"
-MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"  
+MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"
 MYSQL_DB   = "defaultdb"
-MYSQL_PORT = 19558  
+MYSQL_PORT = 19554  # المنفذ الصحيح والتقليدي لـ MySQL وليس 19558
 ADMIN_PIN  = "Ana1984"
 
 # إنشاء المجلدات الضرورية للمشروع
 for folder in ["assets", "invoice", "report", "backups", "uploads"]:
     os.makedirs(folder, exist_ok=True)
 
-# 1. إصلاح مكتبة SQLAlchemy
-DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
-engine = create_engine(DATABASE_URL, pool_size=5, max_overflow=10, pool_recycle=1800, pool_pre_ping=True)
+# 1. إعداد محرك SQLAlchemy مع تفعيل الـ SSL الإلزامي لـ Aiven
+connect_args = {
+    "ssl_mode": "REQUIRED"
+}
 
-# 2. حيلة ذكية لإصلاح مكتبة mysql.connector التقليدية في بقية الملف
+engine = create_engine(
+    f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASS}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}",
+    connect_args=connect_args,
+    pool_size=5, 
+    max_overflow=10, 
+    pool_recycle=1800, 
+    pool_pre_ping=True
+)
 
-
-mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT)
+# 2. حيلة ذكية لضمان تفعيل الـ SSL والمنفذ في مكتبة mysql.connector التقليدية إذا استخدمتها بكودك
+import mysql.connector
+from functools import partial
+mysql.connector.connect = partial(mysql.connector.connect, port=MYSQL_PORT, ssl_mode="REQUIRED")
 
 # ================== تهيئة الخطوط والستايلات ==================
 # ================== تهيئة الخطوط والستايلات ==================
