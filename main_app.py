@@ -188,11 +188,17 @@ def generate_custody_pdf_web(recipient, national_id, project, doc_no, title, ite
         elements = []
         style_normal = getSampleStyleSheet()['Normal']
 
-        # --- 1. إعدادات الهيدر (الشعار والشركة) ---
+        # --- 1. إعدادات الهيدر (الشعار والشركة) لقراءة السحاب المباشرة ---
         company = get_setting("company") or ""
         addr1 = get_setting("addr1") or ""
-        logo_path = resource_path(get_setting("logo"))
-        watermark_path_db = get_setting("watermark")
+        
+        # 1. تحديد مسار ملف الشعار السحابي الثابت مباشرة
+        logo_path = "logo.png"
+        
+        # 2. قراءة وتحديد مسار الشعار المائي الثابت
+        watermark_path_db = "watermark.png"
+        
+        # 3. إنشاء عنصر الشعار للفاتورة إذا كان ملف الصورة متواجداً في جذر المشروع
         logo = RLImage(logo_path, 2.8*cm, 2.8*cm) if os.path.exists(logo_path) else ""
 
         header_style = ParagraphStyle('HeaderStyle', parent=style_normal, fontName='ArabicFont', fontSize=18, alignment=TA_CENTER)
@@ -657,27 +663,19 @@ def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, s
         # =========================
         # 🔷 Header Section
         # =========================
-
         company = get_setting("company") or ""
         addr1 = get_setting("addr1") or ""
         
-        # 1. جلب اسم ملف الشعار مباشرة من قاعدة البيانات بدون دوال مسارات معقدة
-        db_logo = get_setting("logo")
+        # 1. تحديد اسم ملف الشعار الثابت والموحد السحابي مباشرة
+        logo_path = "logo.png"
         
-        # 2. التحقق من المسار بشكل ذكي ليناسب السحاب (Linux) والكمبيوتر المحتلي (Windows)
-        logo_path = ""
-        if db_logo:
-            # تنظيف الاسم من أي مسارات ويندوز قديمة للتأكد من قراءته كملف مجرد في المستودع
-            logo_file_name = os.path.basename(db_logo) 
-            if os.path.exists(logo_file_name):
-                logo_path = logo_file_name
-            elif os.path.exists(db_logo):
-                logo_path = db_logo
+        # 2. إنشاء عنصر الشعار للفاتورة إذا كان الملف موجوداً في جذر المشروع
+        logo = RLImage(logo_path, 2.8*cm, 2.8*cm) if os.path.exists(logo_path) else ""
 
-        watermark_path_db = get_setting("watermark")
-        
-        # 3. إنشاء عنصر الشعار إذا تم العثور على المسار الصحيح
-        logo = RLImage(logo_path, 2.8*cm, 2.8*cm) if logo_path else ""
+        # 3. معالجة الشعار المائي بنفس الطريقة الثابتة
+        watermark_path = "watermark.png"
+        watermark_path_db = watermark_path if os.path.exists(watermark_path) else ""
+
 
         style_company = ParagraphStyle(
             'CompanyStyle',
