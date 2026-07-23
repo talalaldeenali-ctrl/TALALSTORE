@@ -2,6 +2,7 @@ streamlit
 pandas
 mysql-connector-python
 sqlalchemy
+cryptography
 bcrypt
 PyMuPDF
 arabic-reshaper
