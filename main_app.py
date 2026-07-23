@@ -265,16 +265,24 @@ def get_user_menu_perms(user):
     res = [row[0] for row in c.fetchall()]
     conn.close()
     return res
-
-
 def get_db_connection(include_db=True):
     try:
-        config = {'host': MYSQL_HOST, 'user': MYSQL_USER, 'password': MYSQL_PASS, 'charset': 'utf8mb4'}
+        config = {
+            'host': MYSQL_HOST, 
+            'user': MYSQL_USER, 
+            'password': MYSQL_PASS, 
+            'port': MYSQL_PORT,        # إضافة المنفذ السحابي الصحيح (19554)
+            'charset': 'utf8mb4',
+            'ssl_disabled': False     # تفعيل تشفير SSL الإلزامي للسيرفر السحابي
+        }
         if include_db: config['database'] = MYSQL_DB
         return mysql.connector.connect(**config)
     except mysql_error as e:
         st.error(f"Database Connection Error: {e}")
         return None
+
+
+
 def get_user_projects(username):
     try:
         conn = get_db_connection()
