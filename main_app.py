@@ -3035,6 +3035,9 @@ if st.session_state.get('logged_in', False):
 # =========================================================
 # 🔹 كود الـ CSS السحري المطور لحظر كل أدوات المطورين وبطاقة الملف الشخصي
 # =========================================================
+# =========================================================
+# 🔹 حيلة الشريط المطور لحجب بطاقة المطور والخطوط الملونة نهائياً
+# =========================================================
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -3043,13 +3046,18 @@ hide_streamlit_style = """
             .stAppDeployButton {display:none !important;}
             [data-testid="stStatusWidget"] {visibility: hidden;}
             
-            /* حجب بطاقة عرض الملف الشخصي والمطور عند تصغير الشاشة نهائياً */
-            div[data-testid="stEmbedProfileCard"] {display: none !important;}
-            .embeddedAppProfile {display: none !important;}
-            iframe {border: none !important;}
+            /* إنشاء شريط حجب صلب وثابت أسفل الورقة بلون واجهة متجرك */
+            .stApp::after {
+                content: "";
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 50px; /* الارتفاع الكافي لتغطية الأيقونة والبطاقة بالكامل */
+                background-color: #004d4d; /* نفس لون الخلفية الزرقاء/الخضراء لمتجرك لتندمج معها */
+                z-index: 9999999 !important; /* رفعه لأعلى طبقة ممكنة ليحجب أي شيء يظهر تحته */
+                pointer-events: none; /* يمنع التداخل مع أزرار متجرك */
+            }
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-
-
