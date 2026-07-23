@@ -271,9 +271,9 @@ def get_db_connection(include_db=True):
             'host': MYSQL_HOST, 
             'user': MYSQL_USER, 
             'password': MYSQL_PASS, 
-            'port': MYSQL_PORT,        # إضافة المنفذ السحابي الصحيح (19554)
+            'port': MYSQL_PORT,          # المنفذ السحابي 19554
             'charset': 'utf8mb4',
-            'ssl_disabled': False     # تفعيل تشفير SSL الإلزامي للسيرفر السحابي
+            'ssl_verify_identity': False # تفعيل الـ SSL وتخطي التحقق من الشهادة المحلية
         }
         if include_db: config['database'] = MYSQL_DB
         return mysql.connector.connect(**config)
