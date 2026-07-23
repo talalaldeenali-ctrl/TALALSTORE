@@ -44,7 +44,7 @@ MYSQL_HOST = "mysql-108ceb4c-talalaideenali-b880.k.aivencloud.com"
 MYSQL_USER = "avnadmin"
 MYSQL_PASS = "AVNS_Kvb4qC_6i-JnNKt4Wn0"  
 MYSQL_DB   = "defaultdb"
-MYSQL_PORT = 19554  
+MYSQL_PORT = 19558  
 ADMIN_PIN  = "Ana1984"
 
 # إنشاء المجلدات الضرورية للمشروع
