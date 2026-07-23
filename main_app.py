@@ -3032,6 +3032,9 @@ if st.session_state.get('logged_in', False):
 # =========================================================
 # 🔹 إضافة كود الـ CSS في نهاية الملف لإخفاء أدوات المطورين وزر Fork
 # =========================================================
+# =========================================================
+# 🔹 كود الـ CSS السحري المطور لحظر كل أدوات المطورين وبطاقة الملف الشخصي
+# =========================================================
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -3039,10 +3042,14 @@ hide_streamlit_style = """
             header {visibility: hidden;}
             .stAppDeployButton {display:none !important;}
             [data-testid="stStatusWidget"] {visibility: hidden;}
+            
+            /* حجب بطاقة عرض الملف الشخصي والمطور عند تصغير الشاشة نهائياً */
+            div[data-testid="stEmbedProfileCard"] {display: none !important;}
+            .embeddedAppProfile {display: none !important;}
+            iframe {border: none !important;}
             </style>
             """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
 
 
 
