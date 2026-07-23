@@ -660,9 +660,24 @@ def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, s
 
         company = get_setting("company") or ""
         addr1 = get_setting("addr1") or ""
-        logo_path = resource_path(get_setting("logo"))
+        
+        # 1. جلب اسم ملف الشعار مباشرة من قاعدة البيانات بدون دوال مسارات معقدة
+        db_logo = get_setting("logo")
+        
+        # 2. التحقق من المسار بشكل ذكي ليناسب السحاب (Linux) والكمبيوتر المحتلي (Windows)
+        logo_path = ""
+        if db_logo:
+            # تنظيف الاسم من أي مسارات ويندوز قديمة للتأكد من قراءته كملف مجرد في المستودع
+            logo_file_name = os.path.basename(db_logo) 
+            if os.path.exists(logo_file_name):
+                logo_path = logo_file_name
+            elif os.path.exists(db_logo):
+                logo_path = db_logo
+
         watermark_path_db = get_setting("watermark")
-        logo = RLImage(logo_path, 2.8*cm, 2.8*cm) if os.path.exists(logo_path) else ""
+        
+        # 3. إنشاء عنصر الشعار إذا تم العثور على المسار الصحيح
+        logo = RLImage(logo_path, 2.8*cm, 2.8*cm) if logo_path else ""
 
         style_company = ParagraphStyle(
             'CompanyStyle',
@@ -2153,13 +2168,37 @@ if st.session_state.get('logged_in', False):
                         set_setting("addr1", addr)
 
                         if logo:
-                            upload_generic_web("logo", logo)
+                            # 🔹 تعديل سحابي: حفظ الشعار باسم ثابت ومباشر في المجلد الرئيسي لسهولة قراءته بالفاتورة
+                            logo_path = "logo.png"
+                            with open(logo_path, "wb") as f:
+                                f.write(logo.getbuffer())
+                            set_setting("logo", logo_path)
 
                         if watermark:
-                            upload_generic_web("watermark", watermark)
+                            # 🔹 تعديل سحابي: حفظ الشعار المائي باسم ثابت ومباشر
+                            watermark_path = "watermark.png"
+                            with open(watermark_path, "wb") as f:
+                                f.write(watermark.getbuffer())
+                            set_setting("watermark", watermark_path)
 
-                        st.success("✅")
+                        st.success("✅ تم حفظ الإعدادات والشعارات السحابية بنجاح!")
                         st.rerun()
+
+# =========================================================
+# 🔹 إضافة كود الـ CSS في نهاية الملف لإخفاء أدوات المطورين وزر Fork
+# =========================================================
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stAppDeployButton {display:none !important;}
+            [data-testid="stStatusWidget"] {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+
                 # ➕ إضافة مشروع جديد
                 # =================================================
                 st.divider()
