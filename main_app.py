@@ -262,18 +262,33 @@ def generate_custody_pdf_web(recipient, national_id, project, doc_no, title, ite
         def add_watermark(canvas, doc):
             canvas.saveState()
             page_w, page_h = A4
-            if watermark_path_db:
-                w_path = resource_path(watermark_path_db)
-                if os.path.exists(w_path):
-                    canvas.setFillAlpha(0.12)
-                    canvas.drawImage(w_path, (page_w/2)-(7*cm), (page_h/2)-(7*cm), width=14*cm, height=14*cm, mask='auto', preserveAspectRatio=True)
+            
+            # 1. استخدام اسم ملف الشعار المائي السحابي الثابت والموحد مباشرة
+            w_path = "watermark.png"
+            
+            if os.path.exists(w_path):
+                # 2. ضبط الشفافية لتكون خفيفة وراقية (0.10 تعني 10%) ولا تؤثر على أرقام الجدول
+                canvas.setFillAlpha(0.10)
+                
+                # 3. حساب المكان بدقة ليكون في منتصف الصفحة تماماً بحجم 14 سم
+                canvas.drawImage(
+                    w_path, 
+                    (page_w/2) - (7*cm), 
+                    (page_h/2) - (7*cm), 
+                    width=14*cm, 
+                    height=14*cm, 
+                    mask='auto', 
+                    preserveAspectRatio=True
+                )
             canvas.restoreState()
 
+        # بناء ملف الفاتورة النهائي بالخلفية المائية
         cpdf.build(elements, onFirstPage=add_watermark, onLaterPages=add_watermark)
         buffer.seek(0)
         return buffer
+        
     except Exception as e:
-        print(f"Error PDF: {e}")
+        st.error(f"❌ خطأ أثناء توليد الفاتورة: {e}")
         return None
 
 
@@ -643,6 +658,19 @@ def save_invoice_web(recipient, project_name, cart):
     finally:
         if c: c.close()
         if conn: conn.close()
+def draw_watermark(canvas, doc):
+    watermark_path = "watermark.png"
+    if os.path.exists(watermark_path):
+        canvas.saveState()
+        # ضبط الشفافية لتكون خفيفة جداً حتى لا تغطي على أرقام الجدول (0.1 تعني شفافية 10%)
+        canvas.setFillAlpha(0.1)
+        canvas.setStrokeAlpha(0.1)
+        
+        # رسم الشعار المائي في منتصف الصفحة A4 تماماً (العرض 21 سم، الارتفاع 29.7 سم)
+        # يمكنك ضبط المقاسات (width, height) لتناسب رغبتك (هنا تم ضبطها 10 سم * 10 سم)
+        canvas.drawImage(watermark_path, 5.5*cm, 10*cm, width=10*cm, height=10*cm, mask='auto')
+        canvas.restoreState()
+
 
 def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, save_path=None):
 
@@ -884,22 +912,23 @@ def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, s
             try:
                 w, h = A4
 
-                if watermark_path_db:
-                    watermark_path = resource_path(watermark_path_db)
+                # 1. استخدام اسم ملف الشعار المائي السحابي الثابت والموحد مباشرة
+                watermark_path = "watermark.png"
 
-                    if os.path.exists(watermark_path):
-                        canvas.setFillAlpha(0.15)
-                        canvas.drawImage(
-                            watermark_path,
-                            w/2 - 7*cm,
-                            h/2 - 7*cm,
-                            width=14*cm,
-                            height=14*cm,
-                            preserveAspectRatio=True,
-                            mask='auto'
-                        )
+                if os.path.exists(watermark_path):
+                    # ضبط الشفافية لتكون خفيفة وراقية (0.10 تعني 10%) ولا تؤثر على أرقام الجدول
+                    canvas.setFillAlpha(0.10)
+                    canvas.drawImage(
+                        watermark_path,
+                        w/2 - 7*cm,
+                        h/2 - 7*cm,
+                        width=14*cm,
+                        height=14*cm,
+                        preserveAspectRatio=True,
+                        mask='auto'
+                    )
 
-                # ✅ الكتابة المائية أسفل الصفحة في المنتصف
+                # ✅ الكتابة المائية "TALAL STORE" أسفل الصفحة في المنتصف (تعمل بكفاءة)
                 canvas.setFillAlpha(0.25)
                 canvas.setFillColorRGB(0.6, 0.6, 0.6)
                 canvas.setFont("Helvetica-Bold", 18)
@@ -914,6 +943,7 @@ def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, s
                 print("Watermark error:", e)
 
             canvas.restoreState()
+
 
 
         # =========================
