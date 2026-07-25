@@ -1847,11 +1847,11 @@ if st.session_state.get('logged_in', False):
         if report_type == t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"):
             st.subheader(f"📥 {report_type} - {selected_project}")
             
-            # تم إضافة حقل user لإظهار الاسم المسئول عن الحركة
+            # 🔹 تعديل سحابي: حذف حقل المستخدم وتصحيح عملية ضرب الإجمالي لتفادي انهيار الصفحة
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', (qty*price) as 'الإجمالي', user as 'المستخدم'
+                       project as 'المشروع', (qty * price) as 'الإجمالي'
                 FROM transactions 
                 WHERE type='IN' {project_filter} 
                 ORDER BY date DESC
@@ -1866,15 +1866,7 @@ if st.session_state.get('logged_in', False):
                 else:
                     st.info(t("No incoming records found", "لا توجد سجلات وارد لهذا المشروع"))
             except Exception as e:
-                # محاولة احتياطية إذا كان اسم الحقل في جدولك user_name بدلاً من user
-                try:
-                    query_alt = query.replace("user as 'المستخدم'", "user_name as 'المستخدم'")
-                    df_in = pd.read_sql(query_alt, engine, params=params)
-                    if not df_in.empty:
-                        st.dataframe(df_in, use_container_width=True)
-                        st.metric(t("Total Incoming Value", "إجمالي قيمة الواردات"), f"{df_in['الإجمالي'].sum():,.2f} SAR")
-                except Exception:
-                    st.error(f"خطأ في قاعدة البيانات: {e}")
+                st.error(f"خطأ في قاعدة البيانات: {e}")
 
         # ======================================
         # 📤 تقرير الصادر (OUT)
