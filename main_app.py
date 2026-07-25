@@ -1839,9 +1839,6 @@ if st.session_state.get('logged_in', False):
             simple_name = selected_project.split(' ')[0].strip() 
             project_filter = "AND project LIKE %s"
             params = (f"%{simple_name}%",)
-
-        # ======================================
-        # ======================================
         # =========================================================
         # 📥 1. تقرير الوارد (إضافات المخزن)
         # =========================================================
@@ -1851,7 +1848,7 @@ if st.session_state.get('logged_in', False):
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', supplier as 'اسم المستلم/المورد'
+                       project as 'المشروع', supplier as 'المورد'
                 FROM transactions 
                 WHERE type='IN' {project_filter} 
                 ORDER BY date DESC
@@ -1863,13 +1860,13 @@ if st.session_state.get('logged_in', False):
                 if not df_in.empty:
                     st.dataframe(df_in, use_container_width=True)
                     
-                    # 🟢 زر تصدير التقرير الحالي إلى ملف Excel
+                    # 🟢 تصدير إلى Excel باستخدام التوافقية السحابية المدمجة
                     buffer_excel = io.BytesIO()
                     with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
                         df_in.to_excel(writer, sheet_name='Incoming_Report', index=False)
                     
                     st.download_button(
-                        label="📥 تصدير التقرير الحالي إلى Excel",
+                        label="📥 تصدير تقرير الوارد الحالي إلى Excel",
                         data=buffer_excel.getvalue(),
                         file_name=f"Incoming_Report_{selected_project}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1886,10 +1883,11 @@ if st.session_state.get('logged_in', False):
         elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
+            # جلب حقل recipient الصريح لإظهار اسم المستلم الحقيقي الفعلي
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', supplier as 'اسم المستلم'
+                       project as 'المشروع', recipient as 'اسم المستلم'
                 FROM transactions 
                 WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
@@ -1901,13 +1899,13 @@ if st.session_state.get('logged_in', False):
                 if not df_out.empty:
                     st.dataframe(df_out, use_container_width=True)
                     
-                    # 🟢 زر تصدير التقرير الحالي إلى ملف Excel
+                    # 🟢 تصدير إلى Excel باستخدام التوافقية السحابية المدمجة
                     buffer_excel = io.BytesIO()
                     with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
                         df_out.to_excel(writer, sheet_name='Outgoing_Report', index=False)
                     
                     st.download_button(
-                        label="📥 تصدير التقرير الحالي إلى Excel",
+                        label="📥 تصدير تقرير الصادر الحالي إلى Excel",
                         data=buffer_excel.getvalue(),
                         file_name=f"Outgoing_Report_{selected_project}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1916,8 +1914,17 @@ if st.session_state.get('logged_in', False):
                 else:
                     st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
             except Exception as e:
-                st.error(f"خطأ في قاعدة البيانات: {e}")
+                # محاولة احتياطية إذا كان حقل المستلم في جدولك مخزن باسم مستعار آخر
+                try:
+                    query_alt = query.replace("recipient as 'اسم المستلم'", "user as 'اسم المستلم'")
+                    df_out = pd.read_sql(query_alt, engine, params=params)
+                    if not df_out.empty:
+                        st.dataframe(df_out, use_container_width=True)
+                except Exception:
+                    st.error(f"خطأ في قاعدة البيانات: {e}")
 
+
+       
     elif menu_key == "import_export":
         st.header(t("📥 Import & Export Data", "📥 استيراد وتصدير البيانات"))
 
