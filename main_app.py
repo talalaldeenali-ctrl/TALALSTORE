@@ -1842,16 +1842,16 @@ if st.session_state.get('logged_in', False):
 
         # ======================================
         # ======================================
-        # 📥 تقرير الوارد (IN)
-        # ======================================
+        # =========================================================
+        # 📥 1. تقرير الوارد (إضافات المخزن)
+        # =========================================================
         if report_type == t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"):
             st.subheader(f"📥 {report_type} - {selected_project}")
             
-            # 🔹 تعديل سحابي: حذف حقل المستخدم وتصحيح عملية ضرب الإجمالي لتفادي انهيار الصفحة
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', (qty * price) as 'الإجمالي'
+                       project as 'المشروع', supplier as 'اسم المستلم/المورد'
                 FROM transactions 
                 WHERE type='IN' {project_filter} 
                 ORDER BY date DESC
@@ -1862,23 +1862,34 @@ if st.session_state.get('logged_in', False):
                 
                 if not df_in.empty:
                     st.dataframe(df_in, use_container_width=True)
-                    st.metric(t("Total Incoming Value", "إجمالي قيمة الواردات"), f"{df_in['الإجمالي'].sum():,.2f} SAR")
+                    
+                    # 🟢 زر تصدير التقرير الحالي إلى ملف Excel
+                    buffer_excel = io.BytesIO()
+                    with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
+                        df_in.to_excel(writer, sheet_name='Incoming_Report', index=False)
+                    
+                    st.download_button(
+                        label="📥 تصدير التقرير الحالي إلى Excel",
+                        data=buffer_excel.getvalue(),
+                        file_name=f"Incoming_Report_{selected_project}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
                 else:
                     st.info(t("No incoming records found", "لا توجد سجلات وارد لهذا المشروع"))
             except Exception as e:
                 st.error(f"خطأ في قاعدة البيانات: {e}")
 
-        # ======================================
-        # 📤 تقرير الصادر (OUT)
-        # ======================================
+        # =========================================================
+        # 📤 2. تقرير الصادر (حركات الصرف)
+        # =========================================================
         elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # استعلام مصلح لضرب الإجمالي ليعمل بسلاسة على السحاب
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', (qty * price) as 'total' 
+                       project as 'المشروع', supplier as 'اسم المستلم'
                 FROM transactions 
                 WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
@@ -1888,9 +1899,20 @@ if st.session_state.get('logged_in', False):
                 df_out = pd.read_sql(query, engine, params=params)
                 
                 if not df_out.empty:
-                    # تم استخدام use_container_width لتجنب تحذيرات العرض السحابية
                     st.dataframe(df_out, use_container_width=True)
-                    st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادر"), f"{df_out['total'].sum():,.2f} SAR")
+                    
+                    # 🟢 زر تصدير التقرير الحالي إلى ملف Excel
+                    buffer_excel = io.BytesIO()
+                    with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
+                        df_out.to_excel(writer, sheet_name='Outgoing_Report', index=False)
+                    
+                    st.download_button(
+                        label="📥 تصدير التقرير الحالي إلى Excel",
+                        data=buffer_excel.getvalue(),
+                        file_name=f"Outgoing_Report_{selected_project}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
                 else:
                     st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
             except Exception as e:
