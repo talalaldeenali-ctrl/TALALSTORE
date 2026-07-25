@@ -294,6 +294,13 @@ def generate_custody_pdf_web(recipient, national_id, project, doc_no, title, ite
                 print("Watermark error:", e)
 
             canvas.restoreState()
+        cpdf.build(elements, onFirstPage=add_watermark, onLaterPages=add_watermark)
+        buffer.seek(0)
+        return buffer
+
+    except Exception as e:
+        print(f"Error PDF: {e}")
+        return None
 
 
 
