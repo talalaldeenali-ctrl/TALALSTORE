@@ -1871,14 +1871,14 @@ if st.session_state.get('logged_in', False):
         # ======================================
         # 📤 تقرير الصادر (OUT)
         # ======================================
-        elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
+        if report_type == t("Outgoing Logistics (OUT)", "تقرير الصادر (المواد المصروفة)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # تم إضافة حقل user لإظهار اسم الصارف
+            # 🔹 تعديل سحابي: تصحيح عملية الضرب وحذف حقل المستخدم لمنع انهيار تقرير الصادر
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', (qty*price) as 'الإجمالي', user as 'المستخدم'
+                       project as 'المشروع', (qty * price) as 'الإجمالي'
                 FROM transactions 
                 WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
@@ -1889,18 +1889,11 @@ if st.session_state.get('logged_in', False):
                 
                 if not df_out.empty:
                     st.dataframe(df_out, use_container_width=True)
-                    st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادر"), f"{df_out['الإجمالي'].sum():,.2f} SAR")
+                    st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادرات"), f"{df_out['الإجمالي'].sum():,.2f} SAR")
                 else:
-                    st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
+                    st.info(t("No outgoing records found", "لا توجد سجلات صادر لهذا المشروع"))
             except Exception as e:
-                try:
-                    query_alt = query.replace("user as 'المستخدم'", "user_name as 'المستخدم'")
-                    df_out = pd.read_sql(query_alt, engine, params=params)
-                    if not df_out.empty:
-                        st.dataframe(df_out, use_container_width=True)
-                        st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادر"), f"{df_out['الإجمالي'].sum():,.2f} SAR")
-                except Exception:
-                    st.error(f"خطأ في قاعدة البيانات: {e}")
+                st.error(f"خطأ في قاعدة البيانات: {e}")
 
     elif menu_key == "import_export":
         st.header(t("📥 Import & Export Data", "📥 استيراد وتصدير البيانات"))
