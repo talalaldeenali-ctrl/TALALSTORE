@@ -1315,29 +1315,80 @@ if st.session_state.get('logged_in', False):
                 st.info(t("No items found", "لا توجد أصناف لهذا المشروع حالياً"))
 
         # 🔵 التبويب الثاني: إضافة / تعديل صنف
-                with col_r2:
-                    if st.button(t("🖨 Save & Print Receipt", "🖨 حفظ وطباعة السند"), width="stretch"):
-                        try:
-                            # تحديد اسم المستخدم الحالي من الجلسة
-                            current_user = st.session_state.get('username', 'Admin')
-                            target_p = "مشروع الحرم haram" if current_user == "zizo" else selected_project
+          # ======================================
+        # 🔷 التبويب الثاني: إضافة / تعديل صنف
+        # ======================================
+        with tabs[1]:
+            st.subheader(t("Add or Edit Items", "إضافة أو تعديل الأصناف"))
+            
+            # جلب اسم المستخدم الحالي من الجلسة أولاً لتفادي خطأ التعريف
+            current_user = st.session_state.get('username', 'Admin')
+            target_p = "مشروع الحرم haram" if current_user == "zizo" else selected_project
 
+            if "receipt_cart" not in st.session_state:
+                st.session_state["receipt_cart"] = []
+
+            if "receipt_pdf" not in st.session_state:
+                st.session_state["receipt_pdf"] = None
+
+            # 🔹 تعريف كافة المدخلات الأساسية في الأعلى لضمان قراءتها في كل البلوكات
+            code = st.text_input(t("Item Code", "كود الصنف"), key="input_code")
+            name = st.text_input(t("Item Name", "اسم الصنف"), key="input_name")
+            supplier = st.text_input(t("Supplier", "المورد"), key="input_supp")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                qty = st.number_input(t("Quantity", "الكمية"), min_value=0.0, step=1.0, key="input_qty")
+            with col2:
+                price = st.number_input(t("Price", "السعر"), min_value=0.0, step=1.0, key="input_price")
+
+            unit = st.text_input(t("Unit", "الوحدة"), key="input_unit")
+
+            # ======================================
+            # ➕ إضافة للسلة (سند الاستلام)
+            # ======================================
+            if st.button(t("➕ Add To Receipt", "➕ إضافة لسند الاستلام"), use_container_width=True, key="btn_add_receipt"):
+                if not code or not name or qty <= 0:
+                    st.error(t("Code, Name and Quantity required", "يجب إدخال الكود والاسم والكمية"))
+                else:
+                    st.session_state["receipt_cart"].append({
+                        "code": code,
+                        "item": name,
+                        "qty": qty,
+                        "unit": unit,
+                        "price": price,
+                        "supplier": supplier,
+                        "project": target_p
+                    })
+                    st.success(t("Added to receipt", "تمت الإضافة إلى سند الاستلام"))
+                    st.rerun()
+
+            # ======================================
+            # 📋 عرض السلة والـ Save الخاص بها
+            # ======================================
+            if st.session_state["receipt_cart"]:
+                st.markdown("### 📋 سند الاستلام")
+                receipt_df = pd.DataFrame(st.session_state["receipt_cart"])
+                st.dataframe(receipt_df, use_container_width=True)
+
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    if st.button(t("🗑 Clear Receipt", "🗑 مسح السند"), use_container_width=True, key="btn_clear_receipt"):
+                        st.session_state["receipt_cart"] = []
+                        st.rerun()
+
+                with col_r2:
+                    if st.button(t("🖨 Save & Print Receipt", "🖨 حفظ وطباعة السند"), use_container_width=True, key="btn_save_receipt_main"):
+                        try:
                             conn = get_db_connection()
                             cursor = conn.cursor()
-
-                            # توليد رقم مستند فريد وموحد لجميع مواد هذا السند
                             doc_no = f"REC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
                             for row in st.session_state["receipt_cart"]:
-                                # جلب السعر والمورد من المدخلات الحالية أو وضع قيم افتراضية إذا لم توجد في السلة
-                                item_price = price if 'price' not in row else row['price']
-                                item_supplier = supplier if 'supplier' not in row else row['supplier']
-
                                 cursor.execute("""
                                     SELECT id FROM inventory 
                                     WHERE code=%s AND (project_name=%s OR project=%s)
                                 """, (row["code"], target_p, target_p))
-                                
                                 exists = cursor.fetchone()
 
                                 if exists:
@@ -1345,23 +1396,23 @@ if st.session_state.get('logged_in', False):
                                         UPDATE inventory 
                                         SET qty = qty + %s, price = %s, supplier = %s
                                         WHERE code=%s AND (project_name=%s OR project=%s)
-                                    """, (row["qty"], item_price, item_supplier, row["code"], target_p, target_p))
+                                    """, (row["qty"], row["price"], row["supplier"], row["code"], target_p, target_p))
                                 else:
                                     cursor.execute("""
                                         INSERT INTO inventory (code, item, qty, unit, price, supplier, project, project_name)
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                                    """, (row["code"], row["item"], row["qty"], row["unit"], item_price, item_supplier, target_p, target_p))
+                                    """, (row["code"], row["item"], row["qty"], row["unit"], row["price"], row["supplier"], target_p, target_p))
 
-                                # 🌟 الحل السحري: تسجيل الحركة في جدول الحركات ليظهر في تقرير الوارد مع اسم المستخدم
+                                # تسجيل الحركة في جدول الحركات للتقارير مع اسم المستخدم
                                 cursor.execute("""
                                     INSERT INTO transactions (date, doc_no, type, code, item, qty, price, project, user)
                                     VALUES (NOW(), %s, 'IN', %s, %s, %s, %s, %s, %s)
-                                """, (doc_no, row["code"], row["item"], row["qty"], item_price, target_p, current_user))
+                                """, (doc_no, row["code"], row["item"], row["qty"], row["price"], target_p, current_user))
 
                             conn.commit()
                             conn.close()
 
-                            # توليد ملف الـ PDF بنجاح
+                            # توليد الـ PDF
                             pdf_buffer = generate_issue_pdf_web(
                                 recipient="المستودع",
                                 project=target_p,
@@ -1369,40 +1420,37 @@ if st.session_state.get('logged_in', False):
                                 title="سند استلام مواد",
                                 cart_items_list=st.session_state["receipt_cart"]
                             )
-
                             st.session_state["receipt_pdf"] = pdf_buffer.getvalue()
-                            st.session_state["receipt_cart"] = [] # تنظيف السلة بعد الحفظ
+                            st.session_state["receipt_cart"] = []
                             st.success(t("Receipt saved successfully", "تم حفظ المواد وإنشاء سند الاستلام وتحديث التقارير!"))
                             st.rerun()
-
                         except Exception as e:
                             st.error(f"Error: {e}")
 
-            # عرض زر تحميل الـ PDF إذا كان جاهزاً
+            # زر تحميل الـ PDF
             if st.session_state.get("receipt_pdf"):
                 st.download_button(
                     "📥 تحميل سند الاستلام PDF",
                     data=st.session_state["receipt_pdf"],
                     file_name="Receipt_IN.pdf",
                     mime="application/pdf",
-                    width="stretch"
+                    use_container_width=True,
+                    key="btn_download_receipt_pdf"
                 )
 
+            st.markdown("---") # خط فاصل للتنظيم
+
             # =========================================================
-            # 💾 أزرار الحفظ الفردي والحذف الفردي أو الكلي (تحديث مستمر)
+            # 💾 أزرار الحفظ الفردي والحذف الفردي (منظمة داخل تبويبها)
             # =========================================================
             col_add, col_delete = st.columns(2)
             with col_add:
-                if st.button(t("💾 Save Item", "💾 حفظ الصنف"), width="stretch", key="btn_save_item"):
+                if st.button(t("💾 Save Item", "💾 حفظ الصنف"), use_container_width=True, key="btn_save_item"):
                     if not code or not name:
                         st.error(t("Code and Name required", "الكود والاسم مطلوبان"))
                     else:
-                        current_user = st.session_state.get('username', 'Admin')
-                        target_p = "مشروع H_haram" if current_user == "zizo" else selected_project
-                        
                         conn = get_db_connection()
                         cursor = conn.cursor()
-                        
                         cursor.execute("SELECT id FROM inventory WHERE code=%s AND (project_name=%s OR project=%s)", (code, target_p, target_p))
                         exists = cursor.fetchone()
 
@@ -1421,7 +1469,7 @@ if st.session_state.get('logged_in', False):
                             """, (code, name, supplier, qty, price, unit, target_p, target_p))
                             st.success(t("Item added", "تمت إضافة الصنف بنجاح"))
 
-                        # 🌟 تسجيل حركة الإضافة اليدوية الفردية أيضاً في التقارير باسم المستخدم
+                        # تسجيل حركة الإضافة اليدوية الفردية في التقارير مع اسم المستخدم
                         cursor.execute("""
                             INSERT INTO transactions (date, doc_no, type, code, item, qty, price, project, user)
                             VALUES (NOW(), %s, 'IN', %s, %s, %s, %s, %s, %s)
@@ -1433,7 +1481,7 @@ if st.session_state.get('logged_in', False):
 
             with col_delete:
                 if current_user != "zizo":
-                    if st.button(t("🗑 Delete Item", "🗑 حذف الصنف"), width="stretch", key="btn_delete_main"):
+                    if st.button(t("🗑 Delete Item", "🗑 حذف الصنف"), use_container_width=True, key="btn_delete_main"):
                         if not code:
                             st.warning(t("Enter code first", "ادخل الكود أولاً"))
                         else:
@@ -1444,6 +1492,7 @@ if st.session_state.get('logged_in', False):
                             conn.close()
                             st.success(t("Item deleted", "تم حذف الصنف من المخزن"))
                             st.rerun()
+
 
                            
         if current_user != "zizo" and len(tabs) > 2:
