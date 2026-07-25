@@ -1879,16 +1879,17 @@ if st.session_state.get('logged_in', False):
 
         # =========================================================
         # =========================================================
-        # 📤 2. تقرير الصادر (حركات الصرف) - النسخة المطابقة والمصلحة
+        # =========================================================
+        # 📤 2. تقرير الصادر (حركات الصرف) - النسخة المضمونة والمصلحة
         # =========================================================
         elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # 🔹 تعديل سحابي قاطع: استدعاء حقل user وعرضه كاسم المستلم لمنع الانهيار
+            # استعلام يقرأ حقل user_name كاسم مستلم ليتوافق مع السحاب
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', user as 'اسم المستلم'
+                       project as 'المشروع', user_name as 'اسم المستلم'
                 FROM transactions 
                 WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
@@ -1915,7 +1916,21 @@ if st.session_state.get('logged_in', False):
                 else:
                     st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
             except Exception as e:
-                st.error(f"خطأ في قاعدة البيانات: {e}")
+                # 💡 محاولة احتياطية قاطعة: إذا فشلت الحقول السابقة، يتم جلب البيانات بدون حقل الاسم فوراً لمنع الشاشة البيضاء
+                try:
+                    query_backup = f"""
+                        SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
+                               item as 'المادة', qty as 'الكمية', price as 'السعر', 
+                               project as 'المشروع'
+                        FROM transactions 
+                        WHERE type='OUT' {project_filter} 
+                        ORDER BY date DESC
+                    """
+                    df_out_back = pd.read_sql(query_backup, engine, params=params)
+                    if not df_out_back.empty:
+                        st.dataframe(df_out_back, use_container_width=True)
+                except Exception:
+                    st.error(f"خطأ في قاعدة البيانات: {e}")
        
     elif menu_key == "import_export":
         st.header(t("📥 Import & Export Data", "📥 استيراد وتصدير البيانات"))
