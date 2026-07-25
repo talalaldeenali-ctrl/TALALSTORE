@@ -261,36 +261,39 @@ def generate_custody_pdf_web(recipient, national_id, project, doc_no, title, ite
         # --- 6. دالة العلامة المائية (إصلاح خطأ الحساب) ---
         def add_watermark(canvas, doc):
             canvas.saveState()
-            page_w, page_h = A4
-            
-            # 1. استخدام اسم ملف الشعار المائي السحابي الثابت والموحد مباشرة
-            w_path = "watermark.png"
-            
-            if os.path.exists(w_path):
-                # 2. ضبط الشفافية لتكون خفيفة وراقية (0.10 تعني 10%) ولا تؤثر على أرقام الجدول
-                canvas.setFillAlpha(0.10)
-                
-                # 3. حساب المكان بدقة ليكون في منتصف الصفحة تماماً بحجم 14 سم
-                canvas.drawImage(
-                    w_path, 
-                    (page_w/2) - (7*cm), 
-                    (page_h/2) - (7*cm), 
-                    width=14*cm, 
-                    height=14*cm, 
-                    mask='auto', 
-                    preserveAspectRatio=True
+            try:
+                w, h = A4
+
+                # 🔹 قراءة ملف الشعار المائي السحابي المحدث مباشرة
+                watermark_path = "watermark.png"
+
+                if os.path.exists(watermark_path):
+                    # ضبط الشفافية لتكون خفيفة (10%) حتى لا تخفي كتابة الجدول
+                    canvas.setFillAlpha(0.10)
+                    canvas.drawImage(
+                        watermark_path,
+                        w/2 - 7*cm,
+                        h/2 - 7*cm,
+                        width=14*cm,
+                        height=14*cm,
+                        preserveAspectRatio=True,
+                        mask='auto'
+                    )
+
+                # ✅ النص المائي الموحد أسفل الصفحة
+                canvas.setFillAlpha(0.25)
+                canvas.setFillColorRGB(0.6, 0.6, 0.6)
+                canvas.setFont("Helvetica-Bold", 18)
+                canvas.drawCentredString(
+                    w / 2,        # منتصف الصفحة أفقياً
+                    1.5 * cm,     # ارتفاع 1.5 سم من الأسفل
+                    "TALAL STORE"
                 )
+
+            except Exception as e:
+                print("Watermark error:", e)
+
             canvas.restoreState()
-
-        # بناء ملف الفاتورة النهائي بالخلفية المائية
-        cpdf.build(elements, onFirstPage=add_watermark, onLaterPages=add_watermark)
-        buffer.seek(0)
-        return buffer
-        
-    except Exception as e:
-        st.error(f"❌ خطأ أثناء توليد الفاتورة: {e}")
-        return None
-
 
 
 
@@ -912,11 +915,11 @@ def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, s
             try:
                 w, h = A4
 
-                # 1. استخدام اسم ملف الشعار المائي السحابي الثابت والموحد مباشرة
+                # 🔹 قراءة ملف الشعار المائي السحابي المحدث مباشرة
                 watermark_path = "watermark.png"
 
                 if os.path.exists(watermark_path):
-                    # ضبط الشفافية لتكون خفيفة وراقية (0.10 تعني 10%) ولا تؤثر على أرقام الجدول
+                    # ضبط الشفافية لتكون خفيفة (10%) حتى لا تخفي كتابة الجدول
                     canvas.setFillAlpha(0.10)
                     canvas.drawImage(
                         watermark_path,
@@ -928,11 +931,10 @@ def generate_issue_pdf_web(recipient, project, doc_no, title, cart_items_list, s
                         mask='auto'
                     )
 
-                # ✅ الكتابة المائية "TALAL STORE" أسفل الصفحة في المنتصف (تعمل بكفاءة)
+                # ✅ النص المائي الموحد أسفل الصفحة
                 canvas.setFillAlpha(0.25)
                 canvas.setFillColorRGB(0.6, 0.6, 0.6)
                 canvas.setFont("Helvetica-Bold", 18)
-
                 canvas.drawCentredString(
                     w / 2,        # منتصف الصفحة أفقياً
                     1.5 * cm,     # ارتفاع 1.5 سم من الأسفل
