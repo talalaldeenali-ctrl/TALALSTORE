@@ -1879,17 +1879,15 @@ if st.session_state.get('logged_in', False):
 
         # =========================================================
         # =========================================================
-        # 📤 2. تقرير الصادر (حركات الصرف) - النسخة السحابية القاطعة
+        # =========================================================
+        # 📤 2. تقرير الصادر (حركات الصرف) - وضع استكشاف الأعمدة
         # =========================================================
         elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # استعلام يستدعي الحقل بالحروف الكبيرة المعتمدة سحابياً USER_NAME
+            # جلب كافة أعمدة الجدول بدون تحديد أسماء لمعرفة المسمى الحقيقي سحابياً
             query = f"""
-                SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
-                       item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       USER_NAME as 'اسم المستلم', project as 'المشروع'
-                FROM transactions 
+                SELECT * FROM transactions 
                 WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
             """
@@ -1898,39 +1896,12 @@ if st.session_state.get('logged_in', False):
                 df_out = pd.read_sql(query, engine, params=params)
                 
                 if not df_out.empty:
+                    st.info("💡 انظر إلى عناوين الجدول بالأسفل وأخبرني باسم العمود الذي يحتوي على أسماء المستلمين لندمجه بالعربية!")
                     st.dataframe(df_out, use_container_width=True)
-                    
-                    # 🟢 تصدير التقرير الحالي النظيف إلى Excel
-                    buffer_excel = io.BytesIO()
-                    with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
-                        df_out.to_excel(writer, sheet_name='Outgoing_Report', index=False)
-                    
-                    st.download_button(
-                        label="📥 تصدير تقرير الصادر الحالي إلى Excel",
-                        data=buffer_excel.getvalue(),
-                        file_name=f"Outgoing_Report_{selected_project}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
                 else:
                     st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
             except Exception as e:
-                # 💡 الخطة الاحتياطية الفورية: إذا اختلف الحقل مجدداً، يتم عرض الجدول بدون عمود الاسم فوراً لمنع تعطل المنظومة
-                try:
-                    query_safe = f"""
-                        SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
-                               item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                               project as 'المشروع'
-                        FROM transactions 
-                        WHERE type='OUT' {project_filter} 
-                        ORDER BY date DESC
-                    """
-                    df_out_safe = pd.read_sql(query_safe, engine, params=params)
-                    if not df_out_safe.empty:
-                        st.info(t("Displaying records in safe mode.", "يتم العرض بالوضع الآمن المستقر لحين تحديث مسميات خادم البيانات."))
-                        st.dataframe(df_out_safe, use_container_width=True)
-                except Exception:
-                    st.error(f"خطأ في قاعدة البيانات: {e}")
+                st.error(f"خطأ في قاعدة البيانات: {e}")
        
     elif menu_key == "import_export":
         st.header(t("📥 Import & Export Data", "📥 استيراد وتصدير البيانات"))
