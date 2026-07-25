@@ -1871,16 +1871,16 @@ if st.session_state.get('logged_in', False):
         # ======================================
         # 📤 تقرير الصادر (OUT)
         # ======================================
-        if report_type == t("Outgoing Logistics (OUT)", "تقرير الصادر (المواد المصروفة)"):
+        elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # 🔹 تعديل سحابي ذكي: جعل نوع الحركة يقرأ حروف كبيرة وصغيرة LOWER(type) = 'out' لضمان جلب البيانات
+            # استعلام مصلح لضرب الإجمالي ليعمل بسلاسة على السحاب
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', (qty * price) as 'الإجمالي'
+                       project as 'المشروع', (qty * price) as 'total' 
                 FROM transactions 
-                WHERE LOWER(type) = 'out' {project_filter} 
+                WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
             """
             
@@ -1888,25 +1888,11 @@ if st.session_state.get('logged_in', False):
                 df_out = pd.read_sql(query, engine, params=params)
                 
                 if not df_out.empty:
+                    # تم استخدام use_container_width لتجنب تحذيرات العرض السحابية
                     st.dataframe(df_out, use_container_width=True)
-                    st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادرات"), f"{df_out['الإجمالي'].sum():,.2f} SAR")
+                    st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادر"), f"{df_out['total'].sum():,.2f} SAR")
                 else:
-                    # 💡 محاولة احتياطية: إذا لم يجد بيانات للمشروع المختار، يعرض له كافة صوادم المنظومة للتأكد من وجود بيانات
-                    query_all = """
-                        SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
-                               item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                               project as 'المشروع', (qty * price) as 'الإجمالي'
-                        FROM transactions 
-                        WHERE LOWER(type) = 'out'
-                        ORDER BY date DESC
-                    """
-                    df_all_out = pd.read_sql(query_all, engine)
-                    if not df_all_out.empty:
-                        st.info(t("Showing all warehouse outgoing records (Check project filter compatibility).", "يتم الآن عرض كافة حركات الصادر العامة (يرجى التأكد من مطابقة اسم المشروع المختار)."))
-                        st.dataframe(df_all_out, use_container_width=True)
-                        st.metric(t("Total Outgoing Value", "إجمالي قيمة الصادرات"), f"{df_all_out['الإجمالي'].sum():,.2f} SAR")
-                    else:
-                        st.info(t("No outgoing records found in the entire system.", "لا توجد أي سجلات صادر مسجلة في النظام بالكامل حتى الآن."))
+                    st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
             except Exception as e:
                 st.error(f"خطأ في قاعدة البيانات: {e}")
 
