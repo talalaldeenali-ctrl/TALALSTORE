@@ -1878,16 +1878,17 @@ if st.session_state.get('logged_in', False):
                 st.error(f"خطأ في قاعدة البيانات: {e}")
 
         # =========================================================
-        # 📤 2. تقرير الصادر (حركات الصرف)
+        # =========================================================
+        # 📤 2. تقرير الصادر (حركات الصرف) - النسخة المطابقة والمصلحة
         # =========================================================
         elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # جلب حقل recipient الصريح لإظهار اسم المستلم الحقيقي الفعلي
+            # 🔹 تعديل سحابي قاطع: استدعاء حقل user وعرضه كاسم المستلم لمنع الانهيار
             query = f"""
                 SELECT date as 'التاريخ', doc_no as 'رقم المستند', code as 'الكود', 
                        item as 'المادة', qty as 'الكمية', price as 'السعر', 
-                       project as 'المشروع', recipient as 'اسم المستلم'
+                       project as 'المشروع', user as 'اسم المستلم'
                 FROM transactions 
                 WHERE type='OUT' {project_filter} 
                 ORDER BY date DESC
@@ -1899,7 +1900,7 @@ if st.session_state.get('logged_in', False):
                 if not df_out.empty:
                     st.dataframe(df_out, use_container_width=True)
                     
-                    # 🟢 تصدير إلى Excel باستخدام التوافقية السحابية المدمجة
+                    # 🟢 التصدير المباشر والمصلح لـ Excel
                     buffer_excel = io.BytesIO()
                     with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
                         df_out.to_excel(writer, sheet_name='Outgoing_Report', index=False)
@@ -1914,16 +1915,7 @@ if st.session_state.get('logged_in', False):
                 else:
                     st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
             except Exception as e:
-                # محاولة احتياطية إذا كان حقل المستلم في جدولك مخزن باسم مستعار آخر
-                try:
-                    query_alt = query.replace("recipient as 'اسم المستلم'", "user as 'اسم المستلم'")
-                    df_out = pd.read_sql(query_alt, engine, params=params)
-                    if not df_out.empty:
-                        st.dataframe(df_out, use_container_width=True)
-                except Exception:
-                    st.error(f"خطأ في قاعدة البيانات: {e}")
-
-
+                st.error(f"خطأ في قاعدة البيانات: {e}")
        
     elif menu_key == "import_export":
         st.header(t("📥 Import & Export Data", "📥 استيراد وتصدير البيانات"))
