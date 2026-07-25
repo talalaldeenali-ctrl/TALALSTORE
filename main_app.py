@@ -540,6 +540,20 @@ def delete_inventory_item_web(code):
     finally:
         c.close(); conn.close()
 
+# 🔹 دالة جديدة لحذف كامل المخزن دفعة واحدة
+def delete_all_inventory_web():
+    conn = get_db_connection()
+    if not conn: return
+    c = conn.cursor()
+    try:
+        c.execute("TRUNCATE TABLE inventory") # أو DELETE FROM inventory
+        conn.commit()
+        st.success(t("✅ Entire inventory cleared successfully.", "✅ تم مسح وتفريغ المخزن بالكامل بنجاح."))
+    except Exception as e:
+        st.error(t(f"❌ Failed to clear inventory: {e}", f"❌ فشل حذف الكل: {e}"))
+    finally:
+        c.close(); conn.close()
+
 def add_user_web_ui():
     st.subheader(t("Add New User", "إضافة مستخدم جديد"))
     with st.form("new_user_form"):
@@ -1681,13 +1695,11 @@ if st.session_state.get('logged_in', False):
             conn = get_db_connection()
             cursor = conn.cursor(dictionary=True)
             
-            # استعلام للبحث يشمل المشروع المختار والمستودع الرئيسي
+            # 🔹 تعديل سحابي: تم إزالة شرط "qty > 0" وإزالة "LIMIT 20" لإظهار كل شيء حتى لو الكمية صفر
             query = """
                 SELECT * FROM inventory 
                 WHERE (item LIKE %s OR code LIKE %s) 
-                AND qty > 0 
                 AND (project_name = %s OR project_name = 'Main Warehouse')
-                LIMIT 20
             """
             cursor.execute(query, (f'%{search_q}%', f'%{search_q}%', project_name))
             search_results = cursor.fetchall()
@@ -1699,14 +1711,20 @@ if st.session_state.get('logged_in', False):
                     item_proj = (r.get('project_name') or r.get('project') or "").strip()
                     
                     unique_key = f"{r['code']}_{r['id']}"
+                    max_available = float(r.get('qty', 0))
+                    
                     with c_qty:
-                        max_available = float(r['qty'])
-                        q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=max_available, value=min(1.0, max_available), key=f"q_{unique_key}")
+                        # حماية برمجية: إذا كانت الكمية صفر يتم قفل خانة الاختيار لتفادي الأخطاء
+                        if max_available <= 0:
+                            q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=0.0, value=0.0, disabled=True, key=f"q_{unique_key}")
+                        else:
+                            q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=max_available, value=min(1.0, max_available), key=f"q_{unique_key}")
                     
                     with c_btn:
                         st.markdown('<div style="margin-top: 25px;"></div>', unsafe_allow_html=True)
-                        # تم تحديث width لتصبح 'stretch' لتفادي التحذير
-                        if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", width="stretch"):
+                        # قفل زر الإضافة إذا كان المخزون صفراً لمنع صرف مواد غير موجودة بالخطأ
+                        is_disabled = (max_available <= 0)
+                        if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", width="stretch", disabled=is_disabled):
                             st.session_state['cart_items'].append({
                                 'code': r['code'], 'item': r['item'], 'project': item_proj,
                                 'qty': q_val, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
@@ -1718,8 +1736,13 @@ if st.session_state.get('logged_in', False):
                         color = "blue" if is_main else "green"
                         label = "المخزن الرئيسي" if is_main else item_proj
                         st.markdown(f"**{r['item']}** | `{r['code']}`")
-                        st.markdown(f":[{color}][المصدر: {label}] ({t('Stock', 'المخزون')}: {r['qty']})")
-                    
+                        
+                        # تمييز الكمية الصفرية باللون الأحمر لتنبيه المسؤول أثناء البحث
+                        if max_available <= 0:
+                            st.markdown(f":[{color}][المصدر: {label}] (:red[{t('Out of Stock', 'نفذت الكمية')}: 0])")
+                        else:
+                            st.markdown(f":[{color}][المصدر: {label}] ({t('Stock', 'المخزون')}: {r['qty']})")
+             
         # --- 🛒 عرض محتويات السلة ---
         if st.session_state['cart_items']:
             st.divider()
