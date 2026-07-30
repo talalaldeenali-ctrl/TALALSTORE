@@ -1638,7 +1638,7 @@ if st.session_state.get('logged_in', False):
             conn = get_db_connection()
             cursor = conn.cursor(dictionary=True)
             
-            # 🌟 تعديل جذري: إلغاء شرط تقييد المشروع في البحث لإظهار المادة أينما وجدت بالمخزن
+            # بحث مرن يُظهر المادة أينما وجدت بالمخزن لحل مشكلة اختفاء المواد
             query = """
                 SELECT * FROM inventory 
                 WHERE (item LIKE %s OR code LIKE %s)
@@ -1649,7 +1649,8 @@ if st.session_state.get('logged_in', False):
 
             if search_results:
                 for r in search_results:
-                    c_btn, c_qty, c_info = st.columns()
+                    # 🌟 التصحيح البرمجي: تم تحديد توزيع الأعمدة [1, 1, 4] بدقة لمنع خطأ TypeError
+                    c_btn, c_qty, c_info = st.columns([1, 1, 4])
                     item_proj = (r.get('project_name') or r.get('project') or "").strip()
                     
                     unique_key = f"{r['code']}_{r['id']}"
@@ -1745,6 +1746,7 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
                                     continue
                                 
+                                # التصحيح البرمجي: أخذ السجل الأول المطابق من القائمة لحساب الكميات والمشروع بشكل صحيح
                                 r = db_items[0]
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
