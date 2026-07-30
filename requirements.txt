@@ -10,3 +10,4 @@ python-bidi
 reportlab
 pillow
 xlsxwriter
+openpyxl
