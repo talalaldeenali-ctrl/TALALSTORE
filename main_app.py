@@ -1654,15 +1654,13 @@ if st.session_state.get('logged_in', False):
                     unique_key = f"{r['code']}_{r['id']}"
                     max_available = float(r.get('qty', 0))
                     
-                    # 🌟 معالجة ذكية ومتقدمة لتطابق أسماء المشاريع لتفادي ترتيب الكلمات والرموز
+                    # معالجة ذكية ومتقدمة لتطابق أسماء المشاريع لتفادي ترتيب الكلمات والرموز
                     proj_sel_clean = project_name.lower().replace("-", " ").split() if project_name else []
                     item_proj_clean = item_proj.lower().replace("-", " ")
                     
-                    # التحقق إذا كانت أي كلمة أساسية من المشروع المختار موجودة في مشروع المادة (مثل: villas أو الفلل)
                     is_project_match = any(word in item_proj_clean for word in proj_sel_clean if len(word) > 2)
                     is_main_warehouse = "main" in item_proj_clean or "رئيسي" in item_proj_clean
                     
-                    # السماح بالصرف إذا وجد تطابق ذكي أو كانت المادة من المستودع الرئيسي
                     is_allowed = is_project_match or is_main_warehouse
                     is_disabled = (max_available <= 0) or (not is_allowed)
                     
@@ -1746,7 +1744,8 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
                                     continue
                                 
-                                r = db_items
+                                # 🌟 الحل النهائي للخطأ: استدعاء السجل الأول المطابق كقاموس صحيح
+                                r = db_items[0]
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
@@ -1785,6 +1784,7 @@ if st.session_state.get('logged_in', False):
                             
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
+
 
 
 
