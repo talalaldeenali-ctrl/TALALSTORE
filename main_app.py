@@ -1674,7 +1674,7 @@ if st.session_state.get('logged_in', False):
                             })
                             st.rerun()
 
-                    # 🌟 تم إضافة هذا القسم لإظهار اسم المنتج وبياناته في واجهة البحث
+                    # إظهار اسم المنتج وبياناته في واجهة البحث
                     with c_info:
                         source_color = "green" if item_proj == project_name else "orange"
                         st.markdown(
@@ -1740,8 +1740,8 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير متوفر للمشروع المختار أو المستودع الرئيسي.")
                                     continue
                                 
-                                # أخذ السجل الأول المطابق للكود
-                                r = db_items
+                                # 🌟 التصحيح السحابي: استخراج السجل الأول كقاموس صحيح لتجنب خطأ الـ List
+                                r = db_items[0]
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
@@ -1773,6 +1773,7 @@ if st.session_state.get('logged_in', False):
                             
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
+
                             
                 with c_info:
                         is_main = "main warehouse" in item_proj.lower()
