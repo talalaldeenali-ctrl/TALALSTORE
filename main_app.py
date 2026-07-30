@@ -1638,35 +1638,39 @@ if st.session_state.get('logged_in', False):
             conn = get_db_connection()
             cursor = conn.cursor(dictionary=True)
             
-            # 🔹 تعديل سحابي: تم إزالة شرط "qty > 0" وإزالة "LIMIT 20" لإظهار كل شيء حتى لو الكمية صفر
+            # 🌟 تعديل جذري: إلغاء شرط تقييد المشروع في البحث لإظهار المادة أينما وجدت بالمخزن
             query = """
                 SELECT * FROM inventory 
-                WHERE (item LIKE %s OR code LIKE %s) 
-                AND (project_name = %s OR project_name = 'Main Warehouse')
+                WHERE (item LIKE %s OR code LIKE %s)
             """
-            cursor.execute(query, (f'%{search_q}%', f'%{search_q}%', project_name))
+            cursor.execute(query, (f'%{search_q}%', f'%{search_q}%'))
             search_results = cursor.fetchall()
             conn.close()
 
             if search_results:
                 for r in search_results:
-                    c_btn, c_qty, c_info = st.columns([1, 1, 4])
+                    c_btn, c_qty, c_info = st.columns()
                     item_proj = (r.get('project_name') or r.get('project') or "").strip()
                     
                     unique_key = f"{r['code']}_{r['id']}"
                     max_available = float(r.get('qty', 0))
                     
+                    # التحقق من الصلاحية: هل المادة تتبع للمشروع المختار أو المستودع الرئيسي؟
+                    is_project_match = (item_proj.lower() == project_name.lower())
+                    is_main_warehouse = (item_proj.lower() == "main warehouse")
+                    
+                    # قفل الإضافة إذا لم تكن المادة تتبع للمشروع الحالي أو المستودع الرئيسي
+                    is_allowed = is_project_match or is_main_warehouse
+                    is_disabled = (max_available <= 0) or (not is_allowed)
+                    
                     with c_qty:
-                        # حماية برمجية: إذا كانت الكمية صفر يتم قفل خانة الاختيار لتفادي الأخطاء
                         if max_available <= 0:
                             q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=0.0, value=0.0, disabled=True, key=f"q_{unique_key}")
                         else:
-                            q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=max_available, value=min(1.0, max_available), key=f"q_{unique_key}")
+                            q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=max_available, value=min(1.0, max_available), disabled=not is_allowed, key=f"q_{unique_key}")
                     
                     with c_btn:
                         st.markdown('<div style="margin-top: 25px;"></div>', unsafe_allow_html=True)
-                        # قفل زر الإضافة إذا كان المخزون صفراً لمنع صرف مواد غير موجودة بالخطأ
-                        is_disabled = (max_available <= 0)
                         if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", width="stretch", disabled=is_disabled):
                             st.session_state['cart_items'].append({
                                 'code': r['code'], 'item': r['item'], 'project': item_proj,
@@ -1674,9 +1678,15 @@ if st.session_state.get('logged_in', False):
                             })
                             st.rerun()
 
-                    # إظهار اسم المنتج وبياناته في واجهة البحث
+                    # إظهار اسم المنتج وتلوينه بناءً على تبعيته للمشروع لتسهيل القراءة
                     with c_info:
-                        source_color = "green" if item_proj == project_name else "orange"
+                        if is_project_match:
+                            source_color = "green"  # مشروع متطابق تماماً
+                        elif is_main_warehouse:
+                            source_color = "blue"   # المستودع الرئيسي (مسموح بالصرف منه عادة)
+                        else:
+                            source_color = "red"    # مشروع آخر مختلف (مغلق ومحمي)
+                            
                         st.markdown(
                             f"**{r['item']}** | {r['code']}  \n"
                             f"{t('Available Stock', 'المخزون المتاح')}: **{max_available} {r['unit']}** | "
@@ -1698,7 +1708,6 @@ if st.session_state.get('logged_in', False):
         if uploaded_file:
             import pandas as pd
             try:
-                # قراءة الملف وتحويل الأعمدة لنصوص لضمان مطابقة الأكواد بدقة
                 df = pd.read_excel(uploaded_file)
                 
                 if 'code' not in df.columns or 'qty' not in df.columns:
@@ -1721,36 +1730,37 @@ if st.session_state.get('logged_in', False):
                                 except:
                                     excel_qty = 0.0
                                 
-                                line_no = index + 2  # السطر الفعلي داخل ملف الإكسل للمستخدم
+                                line_no = index + 2
                                 
                                 if excel_qty <= 0:
                                     error_logs.append(f"السطر {line_no}: الكمية المطلوبة ({excel_qty}) غير صالحة.")
                                     continue
 
-                                # البحث عن المادة بناءً على الكود وشروط المشروع المحددة في الكود السحابي الخاص بك
-                                query = """
-                                    SELECT * FROM inventory 
-                                    WHERE code = %s 
-                                    AND (project_name = %s OR project_name = 'Main Warehouse')
-                                """
-                                cursor.execute(query, (excel_code, project_name))
+                                # البحث عن المادة بالكود فقط دون قيود في استيراد إكسل أيضاً لضمان الدقة
+                                query = "SELECT * FROM inventory WHERE code = %s"
+                                cursor.execute(query, (excel_code,))
                                 db_items = cursor.fetchall()
 
                                 if not db_items:
-                                    error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير متوفر للمشروع المختار أو المستودع الرئيسي.")
+                                    error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
                                     continue
                                 
-                                # 🌟 التصحيح السحابي: استخراج السجل الأول كقاموس صحيح لتجنب خطأ الـ List
                                 r = db_items[0]
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
-                                # التحقق من توفر كمية كافية في المخزن
+                                # التحقق من شروط الصلاحية والمخزون قبل الإضافة التلقائية من الإكسل
+                                is_project_match = (item_proj.lower() == project_name.lower())
+                                is_main_warehouse = (item_proj.lower() == "main warehouse")
+                                
+                                if not (is_project_match or is_main_warehouse):
+                                    error_logs.append(f"السطر {line_no}: المادة تتبع لمشروع '{item_proj}' ولا يمكن صرفها للمشروع المختار.")
+                                    continue
+
                                 if excel_qty > max_available:
                                     error_logs.append(f"السطر {line_no}: المادة '{r['item']}' كميتها المطلوبة ({excel_qty}) أكبر من المتاح ({max_available}).")
                                     continue
 
-                                # إضافة المادة إلى السلة عند تخطي الفحوصات بنجاح
                                 st.session_state['cart_items'].append({
                                     'code': r['code'], 'item': r['item'], 'project': item_proj,
                                     'qty': excel_qty, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
@@ -1759,7 +1769,6 @@ if st.session_state.get('logged_in', False):
 
                             conn.close()
 
-                            # عرض تقرير المعالجة للمستخدم
                             if success_count > 0:
                                 st.success(t(f"Successfully added {success_count} items to cart!", f"تم إضافة {success_count} مواد إلى السلة بنجاح!"))
                             
@@ -1768,11 +1777,11 @@ if st.session_state.get('logged_in', False):
                                     for err in error_logs:
                                         st.write(err)
                             
-                            # تحديث الصفحة لظهور المنتجات في السلة
                             st.rerun()
                             
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
+
 
                             
                 with c_info:
