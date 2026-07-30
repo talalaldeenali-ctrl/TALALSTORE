@@ -1628,6 +1628,9 @@ if st.session_state.get('logged_in', False):
             projects_list = get_projects_list()
             project_name = st.selectbox(t("Project Name", "اسم المشروع"), projects_list, key="inv_project_select")
         
+        # ==============================
+        # الخيار الأول: البحث السريع اليدوي
+        # ==============================
         search_q = st.text_input(t("Quick search...", "بحث سريع عن مادة بالكود أو الاسم..."), key="inv_quick_search")
         
         if search_q:
@@ -1669,6 +1672,97 @@ if st.session_state.get('logged_in', False):
                                 'qty': q_val, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
                             })
                             st.rerun()
+
+        # ==============================
+        # الخيار الثاني: نظام استيراد الفاتورة عبر إكسل
+        # ==============================
+        st.markdown("---")
+        st.subheader(t("📊 Import via Excel", "📊 استيراد الفاتورة عبر إكسل"))
+        
+        uploaded_file = st.file_uploader(
+            t("Upload Excel file (.xlsx) with 'code' and 'qty'", "ارفع ملف إكسل (.xlsx) يحتوي على 'code' و 'qty'"), 
+            type=["xlsx"],
+            key="excel_invoice_import"
+        )
+
+        if uploaded_file:
+            import pandas as pd
+            try:
+                # قراءة الملف وتحويل الأعمدة لنصوص لضمان مطابقة الأكواد بدقة
+                df = pd.read_excel(uploaded_file)
+                
+                if 'code' not in df.columns or 'qty' not in df.columns:
+                    st.error(t("Excel must contain columns named 'code' and 'qty'", "يجب أن يحتوي ملف الإكسل على أعمدة بأسماء 'code' و 'qty'"))
+                else:
+                    if st.button(t("🚀 Process Excel & Add to Cart", "🚀 معالجة ملف الإكسل وإضافة المواد للسلة"), key="process_excel_btn"):
+                        if not project_name:
+                            st.warning(t("Please select a project first", "الرجاء اختيار المشروع أولاً قبل رفع الملف"))
+                        else:
+                            conn = get_db_connection()
+                            cursor = conn.cursor(dictionary=True)
+                            
+                            success_count = 0
+                            error_logs = []
+
+                            for index, row in df.iterrows():
+                                excel_code = str(row['code']).strip()
+                                try:
+                                    excel_qty = float(row['qty'])
+                                except:
+                                    excel_qty = 0.0
+                                
+                                line_no = index + 2  # السطر الفعلي داخل ملف الإكسل للمستخدم
+                                
+                                if excel_qty <= 0:
+                                    error_logs.append(f"السطر {line_no}: الكمية المطلوبة ({excel_qty}) غير صالحة.")
+                                    continue
+
+                                # البحث عن المادة بناءً على الكود وشروط المشروع المحددة في الكود السحابي الخاص بك
+                                query = """
+                                    SELECT * FROM inventory 
+                                    WHERE code = %s 
+                                    AND (project_name = %s OR project_name = 'Main Warehouse')
+                                """
+                                cursor.execute(query, (excel_code, project_name))
+                                db_items = cursor.fetchall()
+
+                                if not db_items:
+                                    error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير متوفر للمشروع المختار أو المستودع الرئيسي.")
+                                    continue
+                                
+                                # أخذ السجل الأول المطابق للكود
+                                r = db_items[0]
+                                max_available = float(r.get('qty', 0))
+                                item_proj = (r.get('project_name') or r.get('project') or "").strip()
+
+                                # التحقق من توفر كمية كافية في المخزن
+                                if excel_qty > max_available:
+                                    error_logs.append(f"السطر {line_no}: المادة '{r['item']}' كميتها المطلوبة ({excel_qty}) أكبر من المتاح ({max_available}).")
+                                    continue
+
+                                # إضافة المادة إلى السلة عند تخطي الفحوصات بنجاح
+                                st.session_state['cart_items'].append({
+                                    'code': r['code'], 'item': r['item'], 'project': item_proj,
+                                    'qty': excel_qty, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
+                                })
+                                success_count += 1
+
+                            conn.close()
+
+                            # عرض تقرير المعالجة للمستخدم
+                            if success_count > 0:
+                                st.success(t(f"Successfully added {success_count} items to cart!", f"تم إضافة {success_count} مواد إلى السلة بنجاح!"))
+                            
+                            if error_logs:
+                                with st.expander(t("⚠️ View Import Warnings", "⚠️ عرض تحذيرات الاستيراد والأخطاء")):
+                                    for err in error_logs:
+                                        st.write(err)
+                            
+                            # تحديث الصفحة لظهور المنتجات في السلة
+                            st.rerun()
+                            
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
                             
                     with c_info:
                         is_main = "main warehouse" in item_proj.lower()
