@@ -1638,7 +1638,6 @@ if st.session_state.get('logged_in', False):
             conn = get_db_connection()
             cursor = conn.cursor(dictionary=True)
             
-            # بحث مرن يُظهر المادة أينما وجدت بالمخزن لحل مشكلة اختفاء المواد
             query = """
                 SELECT * FROM inventory 
                 WHERE (item LIKE %s OR code LIKE %s)
@@ -1649,18 +1648,21 @@ if st.session_state.get('logged_in', False):
 
             if search_results:
                 for r in search_results:
-                    # 🌟 التصحيح البرمجي: تم تحديد توزيع الأعمدة [1, 1, 4] بدقة لمنع خطأ TypeError
-                    c_btn, c_qty, c_info = st.columns([1, 1, 4])
+                    c_btn, c_qty, c_info = st.columns(3)
                     item_proj = (r.get('project_name') or r.get('project') or "").strip()
                     
                     unique_key = f"{r['code']}_{r['id']}"
                     max_available = float(r.get('qty', 0))
                     
-                    # التحقق من الصلاحية: هل المادة تتبع للمشروع المختار أو المستودع الرئيسي؟
-                    is_project_match = (item_proj.lower() == project_name.lower())
-                    is_main_warehouse = (item_proj.lower() == "main warehouse")
+                    # 🌟 معالجة ذكية ومتقدمة لتطابق أسماء المشاريع لتفادي ترتيب الكلمات والرموز
+                    proj_sel_clean = project_name.lower().replace("-", " ").split() if project_name else []
+                    item_proj_clean = item_proj.lower().replace("-", " ")
                     
-                    # قفل الإضافة إذا لم تكن المادة تتبع للمشروع الحالي أو المستودع الرئيسي
+                    # التحقق إذا كانت أي كلمة أساسية من المشروع المختار موجودة في مشروع المادة (مثل: villas أو الفلل)
+                    is_project_match = any(word in item_proj_clean for word in proj_sel_clean if len(word) > 2)
+                    is_main_warehouse = "main" in item_proj_clean or "رئيسي" in item_proj_clean
+                    
+                    # السماح بالصرف إذا وجد تطابق ذكي أو كانت المادة من المستودع الرئيسي
                     is_allowed = is_project_match or is_main_warehouse
                     is_disabled = (max_available <= 0) or (not is_allowed)
                     
@@ -1672,21 +1674,20 @@ if st.session_state.get('logged_in', False):
                     
                     with c_btn:
                         st.markdown('<div style="margin-top: 25px;"></div>', unsafe_allow_html=True)
-                        if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", width="stretch", disabled=is_disabled):
+                        if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", use_container_width=True, disabled=is_disabled):
                             st.session_state['cart_items'].append({
                                 'code': r['code'], 'item': r['item'], 'project': item_proj,
                                 'qty': q_val, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
                             })
                             st.rerun()
 
-                    # إظهار اسم المنتج وتلوينه بناءً على تبعيته للمشروع لتسهيل القراءة
                     with c_info:
                         if is_project_match:
-                            source_color = "green"  # مشروع متطابق تماماً
+                            source_color = "green"  
                         elif is_main_warehouse:
-                            source_color = "blue"   # المستودع الرئيسي (مسموح بالصرف منه عادة)
+                            source_color = "blue"   
                         else:
-                            source_color = "red"    # مشروع آخر مختلف (مغلق ومحمي)
+                            source_color = "red"    
                             
                         st.markdown(
                             f"**{r['item']}** | {r['code']}  \n"
@@ -1737,7 +1738,6 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: الكمية المطلوبة ({excel_qty}) غير صالحة.")
                                     continue
 
-                                # البحث عن المادة بالكود فقط دون قيود في استيراد إكسل أيضاً لضمان الدقة
                                 query = "SELECT * FROM inventory WHERE code = %s"
                                 cursor.execute(query, (excel_code,))
                                 db_items = cursor.fetchall()
@@ -1746,14 +1746,16 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
                                     continue
                                 
-                                # التصحيح البرمجي: أخذ السجل الأول المطابق من القائمة لحساب الكميات والمشروع بشكل صحيح
-                                r = db_items[0]
+                                r = db_items
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
-                                # التحقق من شروط الصلاحية والمخزون قبل الإضافة التلقائية من الإكسل
-                                is_project_match = (item_proj.lower() == project_name.lower())
-                                is_main_warehouse = (item_proj.lower() == "main warehouse")
+                                # تطبيق نفس المنطق الذكي على الإكسل لتجنب أخطاء كتابة المشاريع
+                                proj_sel_clean = project_name.lower().replace("-", " ").split()
+                                item_proj_clean = item_proj.lower().replace("-", " ")
+                                
+                                is_project_match = any(word in item_proj_clean for word in proj_sel_clean if len(word) > 2)
+                                is_main_warehouse = "main" in item_proj_clean or "رئيسي" in item_proj_clean
                                 
                                 if not (is_project_match or is_main_warehouse):
                                     error_logs.append(f"السطر {line_no}: المادة تتبع لمشروع '{item_proj}' ولا يمكن صرفها للمشروع المختار.")
@@ -1783,6 +1785,7 @@ if st.session_state.get('logged_in', False):
                             
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
+
 
 
                             
