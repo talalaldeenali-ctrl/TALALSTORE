@@ -1764,7 +1764,7 @@ if st.session_state.get('logged_in', False):
             except Exception as e:
                 st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
                             
-                    with c_info:
+                with c_info:
                         is_main = "main warehouse" in item_proj.lower()
                         color = "blue" if is_main else "green"
                         label = "المخزن الرئيسي" if is_main else item_proj
