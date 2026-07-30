@@ -1613,6 +1613,7 @@ if st.session_state.get('logged_in', False):
                 st.error(f"Error generating summary: {e}")
 
 
+
         # 🔴 التبويب الثالث: نقل مواد (للأدمن فقط)
         # ======================================
     elif menu_key == "issue_invoice":
@@ -1673,6 +1674,15 @@ if st.session_state.get('logged_in', False):
                             })
                             st.rerun()
 
+                    # 🌟 تم إضافة هذا القسم لإظهار اسم المنتج وبياناته في واجهة البحث
+                    with c_info:
+                        source_color = "green" if item_proj == project_name else "orange"
+                        st.markdown(
+                            f"**{r['item']}** | {r['code']}  \n"
+                            f"{t('Available Stock', 'المخزون المتاح')}: **{max_available} {r['unit']}** | "
+                            f":{source_color}[{item_proj}]"
+                        )
+
         # ==============================
         # الخيار الثاني: نظام استيراد الفاتورة عبر إكسل
         # ==============================
@@ -1731,7 +1741,7 @@ if st.session_state.get('logged_in', False):
                                     continue
                                 
                                 # أخذ السجل الأول المطابق للكود
-                                r = db_items[0]
+                                r = db_items
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
