@@ -1292,47 +1292,42 @@ if st.session_state.get('logged_in', False):
         st.header(t("📦 Inventory Management", "📦 إدارة المخزون"))
         current_user = st.session_state.get("username")
 
-        # 1️⃣ تحديد صلاحية المشاريع
-        if current_user == "zizo":
-            projects = ["مشروع الحرم haram"]
-            selected_project = "مشروع الحرم haram"
-            st.info(f"📍 {t('Authorized Project: ', 'المشروع المصرح لك: ')} **{selected_project}**")
-        else:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT DISTINCT name FROM projects ORDER BY name")
-            projects = [row[0] for row in cursor.fetchall()]
-            conn.close()
-            if "Main Warehouse" not in projects:
-                projects.insert(0, "Main Warehouse")
-            selected_project = st.selectbox(t("Select Project", "اختر المشروع"), projects, key="inv_main_sel")
+            # 1️⃣ جلب وتحديد كافة المشاريع بشكل موحد لجميع المستخدمين
+        # ==========================================================
+        projects = get_projects_list()
+        
+        # قائمة اختيار المشروع تظهر للجميع الآن دون استثناءات
+        selected_project = st.selectbox(
+            t("Select Project", "اختر المشروع"), 
+            projects, 
+            key="inv_main_sel"
+        )
 
-        # 2️⃣ إنشاء التبويبات بشكل ديناميكي (لتجنب IndexError)
-        if current_user == "zizo":
-            tabs = st.tabs([t("View Inventory", "عرض المخزون"), t("Add Item", "إضافة صنف")])
-        else:
-            tabs = st.tabs([
-                t("View Inventory", "عرض المخزون"), 
-                t("Add / Edit Item", "إضافة / تعديل صنف"), 
-                t("Transfer Items", "نقل مواد")
-            ])
+        # 2️⃣ إنشاء التبويبات الثلاثة بشكل موحد لجميع المستخدمين
+        # ==========================================================
+        tabs = st.tabs([
+            t("View Inventory", "عرض المخزون"), 
+            t("Add / Edit Item", "إضافة / تعديل صنف"), 
+            t("Transfer Items", "نقل مواد")
+        ])
 
         # 🟢 التبويب الأول: عرض المخزون
         # ======================================
         with tabs[0]:
-            if current_user == "zizo":
-                view_option = t("By Project", "حسب المشروع")
-            else:
-                view_option = st.radio(t("View Mode", "طريقة العرض"), 
-                                      [t("Full Inventory", "كامل المخزون"), t("By Project", "حسب المشروع")], 
-                                      horizontal=True, key="v_mode_secure")
+            # خيارات طريقة العرض تظهر للجميع
+            view_option = st.radio(
+                t("View Mode", "طريقة العرض"), 
+                [t("Full Inventory", "كامل المخزون"), t("By Project", "حسب المشروع")], 
+                horizontal=True, 
+                key="v_mode_secure"
+            )
 
-            if view_option == t("Full Inventory", "كامل المخزون") and current_user != "zizo":
+            if view_option == t("Full Inventory", "كامل المخزون"):
                 query = "SELECT * FROM inventory ORDER BY item ASC"
                 df = pd.read_sql(query, engine)
             else:
-                target_q = "مشروع الحرم haram" if current_user == "zizo" else selected_project
-                # البحث في كلا العمودين لضمان ظهور بيانات الإكسل والمخزن اليدوي
+                # تصفية مرنة بناءً على المشروع المختار في القائمة المنسدلة للجميع
+                target_q = selected_project
                 query = "SELECT * FROM inventory WHERE (project_name=%s OR project=%s) ORDER BY item ASC"
                 df = pd.read_sql(query, engine, params=(target_q, target_q))
 
@@ -1350,15 +1345,12 @@ if st.session_state.get('logged_in', False):
                 st.info(t("No items found", "لا توجد أصناف لهذا المشروع حالياً"))
 
         # 🔵 التبويب الثاني: إضافة / تعديل صنف
-          # ======================================
-        # 🔷 التبويب الثاني: إضافة / تعديل صنف
         # ======================================
         with tabs[1]:
             st.subheader(t("Add or Edit Items", "إضافة أو تعديل الأصناف"))
             
-            # جلب اسم المستخدم الحالي من الجلسة أولاً لتفادي خطأ التعريف
             current_user = st.session_state.get('username', 'Admin')
-            target_p = "مشروع الحرم haram" if current_user == "zizo" else selected_project
+            target_p = selected_project
 
             if "receipt_cart" not in st.session_state:
                 st.session_state["receipt_cart"] = []
