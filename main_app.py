@@ -146,20 +146,35 @@ def get_system_projects():
     return projs
 # ➕ إضافة مشروع جديد
 # =====================================================
+# ➕ إضافة مشروع جديد ومنح الصلاحية لجميع المستخدمين وتحديث القائمة
+# =====================================================
 def add_project(project_name):
-
     try:
         conn = get_db_connection()
         c = conn.cursor()
 
-        # إضافة المشروع لجدول الصلاحيات
-        c.execute(
-            "INSERT INTO project_permissions (username, project_name) VALUES (%s, %s)",
-            ("admin", project_name)
-        )
+        # 1. جلب قائمة بجميع المستخدمين المسجلين في النظام حالياً
+        c.execute("SELECT username FROM users")
+        all_users = [row[0] for row in c.fetchall()]
+
+        # 2. إضافة المشروع لجدول الصلاحيات لكل مستخدم لكي يظهر للجميع في صفحة الصرف
+        for user in all_users:
+            # التحقق أولاً منعاً للتكرار
+            c.execute(
+                "SELECT 1 FROM project_permissions WHERE username = %s AND project_name = %s",
+                (user, project_name)
+            )
+            if not c.fetchone():
+                c.execute(
+                    "INSERT INTO project_permissions (username, project_name) VALUES (%s, %s)",
+                    (user, project_name)
+                )
 
         conn.commit()
         conn.close()
+
+        # 3. 💡 هام جداً: تفريغ الكاش الخاص بـ Streamlit لكي تظهر البيانات فوراً بدون إعادة تشغيل
+        st.cache_data.clear()
 
         return True
 
@@ -372,21 +387,41 @@ def get_projects_list():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # 1. جلب المشاريع من جدول المشاريع الرئيسي
         cursor.execute("SELECT DISTINCT TRIM(name) FROM projects")
-        rows = cursor.fetchall()
+        rows_projects = cursor.fetchall()
+        
+        # 2. جلب المشاريع المسجلة للمواد داخل المخزن
+        cursor.execute("SELECT DISTINCT TRIM(project_name) FROM inventory WHERE project_name IS NOT NULL")
+        rows_inventory = cursor.fetchall()
+        
         conn.close()
         
-        # استخراج الأسماء وتنظيفها
-        projects = sorted([row[0] for row in rows if row[0]])
+        # دمج القائمتين وتنظيف الأسماء لعدم التكرار
+        all_projects = set()
+        for row in rows_projects:
+            if row and row[0]: all_projects.add(str(row[0]).strip())
+        for row in rows_inventory:
+            if row and row[0]: all_projects.add(str(row[0]).strip())
+            
+        # 🌟 التأكد من إضافة الاسم بالصيغة الدقيقة للمشروع
+        target_name = "Mayasem- مياسم"
+        if target_name not in all_projects:
+            all_projects.add(target_name)
+            
+        # تحويلها إلى قائمة مرتبة أبجدياً
+        projects = sorted(list(all_projects))
         
-        # إضافة المخزن الرئيسي كخيار أساسي
-        if "Main Warehouse" not in projects:
-            projects.insert(0, "Main Warehouse")
+        # ترتيب القائمة ليكون المخزن الرئيسي في البداية دائماً
+        if "Main Warehouse" in projects:
+            projects.remove("Main Warehouse")
+        projects.insert(0, "Main Warehouse")
             
         return projects
-    except:
-        return ["Main Warehouse"]
-
+    except Exception as e:
+        print(f"Error in get_projects_list: {e}")
+        return ["Main Warehouse", "Mayasem- مياسم"]
 
 # تحميل اللغة عند بداية التشغيل
 if "lang" not in st.session_state:
