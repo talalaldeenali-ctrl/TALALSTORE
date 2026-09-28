@@ -3006,6 +3006,35 @@ if st.session_state.get('logged_in', False):
         # ------------------- التبويب الثاني: البحث والمراجعة (إزاحة 8 مسافات) -------------------
         with tab_search:
             st.subheader(t("🔍 Manage & Review", "🔍 مراجعة الحركات"))
+            
+            # --- قسم تصفير وحذف السجلات كاملة لمشروع جديد ---
+            st.markdown("---")
+            st.warning("⚠️ **منطقة خطرة:** يمكنك هنا مسح جميع السجلات لتصفير العهدة والبدء في مشروع جديد.")
+            
+            # تأكيد الأمان لمنع الحذف بالخطأ
+            confirm_delete = st.checkbox("أوافق على حذف جميع سجلات العهدة الحالية نهائياً لتصفير النظام")
+            
+            if st.button("🗑️ حذف السجلات وتصفير العهدة بالكامل", type="primary", use_container_width=True, disabled=not confirm_delete):
+                try:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    
+                    # تنفيذ أمر الحذف لجميع البيانات داخل الجدول
+                    cursor.execute("DELETE FROM equipment_custody")
+                    
+                    # تصفير عداد ترقيم السندات أيضاً لتبدأ السندات من جديد
+                    set_setting("last_cust_no", "0")
+                    
+                    conn.commit()
+                    conn.close()
+                    
+                    st.success("✅ تم حذف جميع السجلات وتصفير العهدة بنجاح! السجل الآن نظيف وجاهز لمشروع جديد.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ حدث خطأ أثناء محاولة مسح البيانات: {e}")
+            st.markdown("---")
+            
+            # --- قسم البحث وعرض البيانات الحالي ---
             search_query = st.text_input(t("Search...", "ابحث باسم المستلم، الهوية، أو المعدة"), key="search_cust_review")
             
             try:
@@ -3022,6 +3051,12 @@ if st.session_state.get('logged_in', False):
                 """
                 params = (f"%{search_query}%", f"%{search_query}%", f"%{search_query}%")
                 cursor.execute(sql, params)
+                
+                # هنا يستمر بقية كود العرض الخاص بك (Fetchall وعرض الجدول)
+                # ...
+
+      
+  
                 rows = cursor.fetchall()
                 conn.close()
 
