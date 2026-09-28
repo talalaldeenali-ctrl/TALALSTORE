@@ -11,3 +11,4 @@ reportlab
 pillow
 xlsxwriter
 openpyxl
+streamlit-pdf-viewer
