@@ -1638,142 +1638,191 @@ if st.session_state.get('logged_in', False):
                     st.info(t("No data available for summary.", "لا توجد بيانات متاحة للملخص."))
             except Exception as e:
                 st.error(f"Error generating summary: {e}")
-
-
-
-        # 🔴 التبويب الثالث: نقل مواد (للأدمن فقط)
-        # ======================================
-    elif menu_key == "issue_invoice":
-        if 'cart_items' not in st.session_state:
+elif menu_key == "issue_invoice":
+    if 'cart_items' not in st.session_state:
+        st.session_state['cart_items'] = []
+    if 'edit_mode' not in st.session_state:
+        st.session_state['edit_mode'] = False
+    if 'edit_inv_no' not in st.session_state:
+        st.session_state['edit_inv_no'] = None
+        
+    # --- قسم إدارة وضع التعديل التنبيهي ---
+    if st.session_state['edit_mode']:
+        st.warning(f"⚠️ أنت الآن في وضع تعديل الفاتورة رقم: {st.session_state['edit_inv_no']}")
+        if st.button(t("🚫 Cancel Edit Mode", "🚫 إلغاء وضع التعديل والعودة للفاتورة الجديدة"), type="secondary"):
+            st.session_state['edit_mode'] = False
+            st.session_state['edit_inv_no'] = None
             st.session_state['cart_items'] = []
+            st.rerun()
 
-        st.header(t("🧾 Create Material Issue Invoice", "🧾 إنشاء فاتورة صرف مواد"))
-
-        col_inv1, col_inv2 = st.columns(2)
-        with col_inv1:
-            recipient = st.text_input(t("Recipient Name", "اسم المستلم"), key="inv_recipient")
-        with col_inv2:
-            projects_list = get_projects_list()
-            project_name = st.selectbox(t("Project Name", "اسم المشروع"), projects_list, key="inv_project_select")
-        
-        # ==============================
-        # الخيار الأول: البحث السريع اليدوي
-        # ==============================
-        search_q = st.text_input(t("Quick search...", "بحث سريع عن مادة بالكود أو الاسم..."), key="inv_quick_search")
-        
-        if search_q:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            
-            query = """
-                SELECT * FROM inventory 
-                WHERE (item LIKE %s OR code LIKE %s)
-            """
-            cursor.execute(query, (f'%{search_q}%', f'%{search_q}%'))
-            search_results = cursor.fetchall()
-            conn.close()
-
-            if search_results:
-                for r in search_results:
-                    c_btn, c_qty, c_info = st.columns(3)
-                    item_proj = (r.get('project_name') or r.get('project') or "").strip()
-                    
-                    unique_key = f"{r['code']}_{r['id']}"
-                    max_available = float(r.get('qty', 0))
-                    
-                    # معالجة ذكية ومتقدمة لتطابق أسماء المشاريع لتفادي ترتيب الكلمات والرموز
-                    proj_sel_clean = project_name.lower().replace("-", " ").split() if project_name else []
-                    item_proj_clean = item_proj.lower().replace("-", " ")
-                    
-                    is_project_match = any(word in item_proj_clean for word in proj_sel_clean if len(word) > 2)
-                    is_main_warehouse = "main" in item_proj_clean or "رئيسي" in item_proj_clean
-                    
-                    is_allowed = is_project_match or is_main_warehouse
-                    is_disabled = (max_available <= 0) or (not is_allowed)
-                    
-                    with c_qty:
-                        if max_available <= 0:
-                            q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=0.0, value=0.0, disabled=True, key=f"q_{unique_key}")
-                        else:
-                            q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=max_available, value=min(1.0, max_available), disabled=not is_allowed, key=f"q_{unique_key}")
-                    
-                    with c_btn:
-                        st.markdown('<div style="margin-top: 25px;"></div>', unsafe_allow_html=True)
-                        if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", use_container_width=True, disabled=is_disabled):
-                            st.session_state['cart_items'].append({
-                                'code': r['code'], 'item': r['item'], 'project': item_proj,
-                                'qty': q_val, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
-                            })
-                            st.rerun()
-
-                    with c_info:
-                        if is_project_match:
-                            source_color = "green"  
-                        elif is_main_warehouse:
-                            source_color = "blue"   
-                        else:
-                            source_color = "red"    
-                            
-                        st.markdown(
-                            f"**{r['item']}** | {r['code']}  \n"
-                            f"{t('Available Stock', 'المخزون المتاح')}: **{max_available} {r['unit']}** | "
-                            f":{source_color}[{item_proj}]"
-                        )
-
-        # ==============================
-        # الخيار الثاني: نظام استيراد الفاتورة عبر إكسل
-        # ==============================
-        st.markdown("---")
-        st.subheader(t("📊 Import via Excel", "📊 استيراد الفاتورة عبر إكسل"))
-        
-        uploaded_file = st.file_uploader(
-            t("Upload Excel file (.xlsx) with 'code' and 'qty'", "ارفع ملف إكسل (.xlsx) يحتوي على 'code' و 'qty'"), 
-            type=["xlsx"],
-            key="excel_invoice_import"
-        )
-
-        if uploaded_file:
-            import pandas as pd
-            try:
-                df = pd.read_excel(uploaded_file)
+    st.header(t("🧾 Create / Edit Material Issue Invoice", "🧾 إنشاء وتعديل فاتورة صرف مواد"))
+    
+    # ==========================================
+    # 🔍 أداة البحث عن فاتورة سابقة لتعديلها
+    # ==========================================
+    with st.expander(t("🔍 Search & Edit Previous Invoice", "🔍 البحث عن فاتورة سابقة وتعديلها")):
+        search_inv_no = st.text_input(t("Enter Invoice Number (e.g., 0005)", "أدخل رقم الفاتورة المراد تعديلها (مثال: 0005)"), key="search_inv_to_edit")
+        if st.button(t("📂 Load Invoice to Edit", "📂 جلب بيانات الفاتورة للتعديل"), use_container_width=True):
+            if search_inv_no:
+                # هنا نقوم بجلب الفاتورة من قاعدة البيانات
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
                 
-                if 'code' not in df.columns or 'qty' not in df.columns:
-                    st.error(t("Excel must contain columns named 'code' and 'qty'", "يجب أن يحتوي ملف الإكسل على أعمدة بأسماء 'code' و 'qty'"))
+                # افتراضاً أن جدول الفواتير يحتوي على التفاصيل، جلب الرأس أولاً أو التفاصيل مباشرة
+                query = "SELECT * FROM invoice_items WHERE invoice_no = %s" # قم بتغيير اسم الجدول والحقول حسب قاعدة بياناتك
+                cursor.execute(query, (search_inv_no.strip(),))
+                inv_items = cursor.fetchall()
+                
+                # جلب بيانات المستلم والمشروع من جدول الفواتير الرئيسي إن وجد
+                cursor.execute("SELECT recipient, project_name FROM invoices WHERE invoice_no = %s", (search_inv_no.strip(),))
+                inv_main = cursor.fetchone()
+                conn.close()
+                
+                if inv_items:
+                    st.session_state['cart_items'] = []
+                    for item in inv_items:
+                        st.session_state['cart_items'].append({
+                            'code': item['code'],
+                            'item': item['item'],
+                            'project': item.get('project', ''),
+                            'qty': float(item['qty']),
+                            'unit': item.get('unit', ''),
+                            'price': float(item.get('price', 0)),
+                            'supplier': item.get('supplier', '')
+                        })
+                    
+                    st.session_state['edit_mode'] = True
+                    st.session_state['edit_inv_no'] = search_inv_no.strip()
+                    
+                    # ملء الحقول الرئيسية إذا وجدت
+                    if inv_main:
+                        st.session_state['inv_recipient'] = inv_main['recipient']
+                        # لتحديث الـ selectbox قد تحتاج لتهيئة مفتاح الـ session ليتطابق مع القيمة المجلوبة
+                    
+                    st.success(t("Invoice loaded successfully! You can now add/remove or change items.", "تم جلب الفاتورة بنجاح! يمكنك الآن تعديل المواد، الكميات، أو الإضافة عليها أدناه."))
+                    st.rerun()
                 else:
-                    if st.button(t("🚀 Process Excel & Add to Cart", "🚀 معالجة ملف الإكسل وإضافة المواد للسلة"), key="process_excel_btn"):
-                        if not project_name:
-                            st.warning(t("Please select a project first", "الرجاء اختيار المشروع أولاً قبل رفع الملف"))
-                        else:
-                            conn = get_db_connection()
-                            cursor = conn.cursor(dictionary=True)
+                    st.error(t("Invoice number not found.", "رقم الفاتورة غير موجود."))
+
+    # الحقول الرئيسية الفاتورة
+    col_inv1, col_inv2 = st.columns(2)
+    with col_inv1:
+        recipient = st.text_input(t("Recipient Name", "اسم المستلم"), key="inv_recipient")
+    with col_inv2:
+        projects_list = get_projects_list()
+        project_name = st.selectbox(t("Project Name", "اسم المشروع"), projects_list, key="inv_project_select")
+
+    # ==============================
+    # الخيار الأول: البحث السريع اليدوي
+    # ==============================
+    search_q = st.text_input(t("Quick search...", "بحث سريع عن مادة بالكود أو الاسم..."), key="inv_quick_search")
+    
+    if search_q:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        query = """ SELECT * FROM inventory WHERE (item LIKE %s OR code LIKE %s) """
+        cursor.execute(query, (f'%{search_q}%', f'%{search_q}%'))
+        search_results = cursor.fetchall()
+        conn.close()
+        
+        if search_results:
+            for r in search_results:
+                c_btn, c_qty, c_info = st.columns(3)
+                item_proj = (r.get('project_name') or r.get('project') or "").strip()
+                unique_key = f"{r['code']}_{r['id']}"
+                max_available = float(r.get('qty', 0))
+                
+                proj_sel_clean = project_name.lower().replace("-", " ").split() if project_name else []
+                item_proj_clean = item_proj.lower().replace("-", " ")
+                
+                is_project_match = any(word in item_proj_clean for word in proj_sel_clean if len(word) > 2)
+                is_main_warehouse = "main" in item_proj_clean or "رئيسي" in item_proj_clean or "warehouse" in item_proj_clean
+                is_allowed = is_project_match or is_main_warehouse
+                is_disabled = (max_available <= 0) or (not is_allowed)
+                
+                with c_qty:
+                    if max_available <= 0:
+                        q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=0.0, value=0.0, disabled=True, key=f"q_{unique_key}")
+                    else:
+                        q_val = st.number_input(t("Qty", "الكمية"), min_value=0.0, max_value=max_available, value=min(1.0, max_available), disabled=not is_allowed, key=f"q_{unique_key}")
+                
+                with c_btn:
+                    st.markdown('<div style="margin-top: 25px;"></div>', unsafe_allow_html=True)
+                    if st.button(t("➕ Add", "➕ إضافة"), key=f"add_{unique_key}", use_container_width=True, disabled=is_disabled):
+                        st.session_state['cart_items'].append({
+                            'code': r['code'],
+                            'item': r['item'],
+                            'project': item_proj,
+                            'qty': q_val,
+                            'unit': r['unit'],
+                            'price': r['price'],
+                            'supplier': r['supplier']
+                        })
+                        st.rerun()
+                
+                with c_info:
+                    source_color = "green" if is_project_match else ("blue" if is_main_warehouse else "red")
+                    label = t("Main Warehouse", "المخزن الرئيسي") if is_main_warehouse else item_proj
+                    
+                    st.markdown(f"**{r['item']}** | `{r['code']}`")
+                    if max_available <= 0:
+                        st.markdown(f":[{source_color}][المصدر: {label}] (:red[{t('Out of Stock', 'نفذت الكمية')}: 0])")
+                    else:
+                        st.markdown(f":[{source_color}][المصدر: {label}] ({t('Stock', 'المخزون')}: {max_available} {r['unit']})")
+
+    # ==============================
+    # الخيار الثاني: نظام استيراد الفاتورة عبر إكسل
+    # ==============================
+    st.markdown("---")
+    st.subheader(t("📊 Import via Excel", "📊 استيراد الفاتورة عبر إكسل"))
+    uploaded_file = st.file_uploader(
+        t("Upload Excel file (.xlsx) with 'code' and 'qty'", "ارفع ملف إكسل (.xlsx) يحتوي على 'code' و 'qty'"),
+        type=["xlsx"], key="excel_invoice_import"
+    )
+    
+    if uploaded_file:
+        import pandas as pd
+        try:
+            df = pd.read_excel(uploaded_file)
+            if 'code' not in df.columns or 'qty' not in df.columns:
+                st.error(t("Excel must contain columns named 'code' and 'qty'", "يجب أن يحتوي ملف الإكسل على أعمدة بأسماء 'code' و 'qty'"))
+            else:
+                if st.button(t("🚀 Process Excel & Add to Cart", "🚀 معالجة ملف الإكسل وإضافة المواد للسلة"), key="process_excel_btn", use_container_width=True):
+                    if not project_name:
+                        st.warning(t("Please select a project first", "الرجاء اختيار المشروع أولاً قبل رفع الملف"))
+                    else:
+                        conn = get_db_connection()
+                        cursor = conn.cursor(dictionary=True)
+                        success_count = 0
+                        error_logs = []
+                        
+                        for index, row in df.iterrows():
+                            excel_code = str(row['code']).strip()
+                            try:
+                                excel_qty = float(row['qty'])
+                            except:
+                                excel_qty = 0.0
+                                
+                            line_no = index + 2
+                            if excel_qty <= 0:
+                                error_logs.append(f"السطر {line_no}: الكمية المطلوبة ({excel_qty}) غير صالحة.")
+                                continue
+                                
+                            query = "SELECT * FROM inventory WHERE code = %s"
+                            cursor.execute(query, (excel_code,))
+                            db_items = cursor.fetchall()
                             
-                            success_count = 0
-                            error_logs = []
-
-                            for index, row in df.iterrows():
-                                excel_code = str(row['code']).strip()
-                                try:
-                                    excel_qty = float(row['qty'])
-                                except:
-                                    excel_qty = 0.0
+                            if not db_items:
+                                error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
+                                continue
                                 
-                                line_no = index + 2
-                                
-                                if excel_qty <= 0:
-                                    error_logs.append(f"السطر {line_no}: الكمية المطلوبة ({excel_qty}) غير صالحة.")
-                                    continue
+                            r = db_items[0]
+                            max_available = float(r.get('qty', 0))
 
-                                query = "SELECT * FROM inventory WHERE code = %s"
-                                cursor.execute(query, (excel_code,))
-                                db_items = cursor.fetchall()
 
-                                if not db_items:
-                                    error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
-                                    continue
-                                
-                                # 🌟 الحل النهائي للخطأ: استدعاء السجل الأول المطابق كقاموس صحيح
-                                r = db_items[0]
-                                max_available = float(r.get('qty', 0))
+
+
+
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
                                 # تطبيق نفس المنطق الذكي على الإكسل لتجنب أخطاء كتابة المشاريع
