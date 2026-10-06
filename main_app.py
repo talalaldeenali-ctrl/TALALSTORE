@@ -1713,6 +1713,7 @@ if st.session_state.get('logged_in', False):
             project_name = st.selectbox(t("Project Name", "اسم المشروع"), projects_list, key="inv_project_select")
 
         # ==============================
+        # ==============================
         # الخيار الأول: البحث السريع اليدوي
         # ==============================
         search_q = st.text_input(t("Quick search...", "بحث سريع عن مادة بالكود أو الاسم..."), key="inv_quick_search")
@@ -1769,7 +1770,6 @@ if st.session_state.get('logged_in', False):
                             st.markdown(f":[{source_color}][المصدر: {label}] (:red[{t('Out of Stock', 'نفذت الكمية')}: 0])")
                         else:
                             st.markdown(f":[{source_color}][المصدر: {label}] ({t('Stock', 'المخزون')}: {max_available} {r['unit']})")
-
         # ==============================
         # الخيار الثاني: نظام استيراد الفاتورة عبر إكسل
         # ==============================
