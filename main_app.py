@@ -1638,7 +1638,7 @@ if st.session_state.get('logged_in', False):
                     st.info(t("No data available for summary.", "لا توجد بيانات متاحة للملخص."))
             except Exception as e:
                 st.error(f"Error generating summary: {e}")
-    if menu_key == "issue_invoice":
+    elif menu_key == "issue_invoice":
         if 'cart_items' not in st.session_state:
             st.session_state['cart_items'] = []
         if 'edit_mode' not in st.session_state:
@@ -1697,7 +1697,6 @@ if st.session_state.get('logged_in', False):
                         # ملء الحقول الرئيسية إذا وجدت
                         if inv_main:
                             st.session_state['inv_recipient'] = inv_main['recipient']
-                            # لتحديث الـ selectbox قد تحتاج لتهيئة مفتاح الـ session ليتطابق مع القيمة المجلوبة
                         
                         st.success(t("Invoice loaded successfully! You can now add/remove or change items.", "تم جلب الفاتورة بنجاح! يمكنك الآن تعديل المواد، الكميات، أو الإضافة عليها أدناه."))
                         st.rerun()
@@ -1712,7 +1711,6 @@ if st.session_state.get('logged_in', False):
             projects_list = get_projects_list()
             project_name = st.selectbox(t("Project Name", "اسم المشروع"), projects_list, key="inv_project_select")
 
-        # ==============================
         # ==============================
         # الخيار الأول: البحث السريع اليدوي
         # ==============================
@@ -1770,6 +1768,7 @@ if st.session_state.get('logged_in', False):
                             st.markdown(f":[{source_color}][المصدر: {label}] (:red[{t('Out of Stock', 'نفذت الكمية')}: 0])")
                         else:
                             st.markdown(f":[{source_color}][المصدر: {label}] ({t('Stock', 'المخزون')}: {max_available} {r['unit']})")
+
         # ==============================
         # الخيار الثاني: نظام استيراد الفاتورة عبر إكسل
         # ==============================
