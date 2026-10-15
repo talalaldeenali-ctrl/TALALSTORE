@@ -2107,17 +2107,21 @@ if st.session_state.get('logged_in', False):
                     df_upload = df_upload.fillna("")
                     df_upload['project'] = target_project
                     
+                    # التحقق من وجود عمود المورد في الإكسل المرفوع لمنع توقف السيرفر
+                    if 'supplier' not in df_upload.columns:
+                        df_upload['supplier'] = ""
+                    
                     total_rows = len(df_upload)
                     st.info(f"📊 تم اكتشاف {total_rows} بند لمشروع: {target_project}")
                     st.dataframe(df_upload.head(5))
+                    
                     if st.session_state.get("import_pdf"):
-
                         st.download_button(
                             label="📥 تحميل سند الاستلام PDF",
                             data=st.session_state["import_pdf"],
                             file_name="Import_Receipt.pdf",
                             mime="application/pdf",
-                            width="stretch"
+                            use_container_width=True
                         ) 
 
                     if st.button(t(f"Confirm Import {total_rows} Items", f"تأكيد استيراد {total_rows} بند")):
@@ -2126,13 +2130,13 @@ if st.session_state.get('logged_in', False):
                             import time
 
                             doc_no = random.randint(100000, 999999)
-
                             imported_items = []
 
                             conn = get_db_connection()
                             cursor = conn.cursor()
 
                             for index, row in df_upload.iterrows():
+                                supplier_val = str(row.get('supplier', '')).strip()
 
                                 imported_items.append({
                                     "code": str(row['code']),
@@ -2146,77 +2150,45 @@ if st.session_state.get('logged_in', False):
                                     "SELECT id FROM inventory WHERE code=%s AND project=%s",
                                     (str(row['code']), target_project)
                                 )
-
                                 exists = cursor.fetchone()
 
                                 if exists:
-
                                     existing_id = exists[0]
-
                                     cursor.execute(
                                         "UPDATE inventory SET qty = qty + %s WHERE id=%s",
                                         (row['qty'], existing_id)
                                     )
-
                                 else:
-
                                     cursor.execute("""
                                         INSERT INTO inventory
-                                        (
-                                            code,
-                                            item,
-                                            qty,
-                                            unit,
-                                            price,
-                                            supplier,
-                                            project,
-                                            project_name
-                                        )
+                                        (code, item, qty, unit, price, supplier, project, project_name)
                                         VALUES
-                                        (
-                                            %s,%s,%s,%s,%s,%s,%s,%s
-                                        )
+                                        (%s, %s, %s, %s, %s, %s, %s, %s)
                                     """, (
                                         str(row['code']),
                                         row['item'],
                                         row['qty'],
                                         row['unit'],
                                         row['price'],
-                                        row['supplier'],
+                                        supplier_val,
                                         target_project,
                                         target_project
                                     ))
 
+                                # 💡 تم تعديل هذا الاستعلام ليقوم بحفظ المورد داخل جدول حركات الوارد لمنع ظهور None في التقارير
                                 cursor.execute("""
                                     INSERT INTO transactions
-                                    (
-                                        date,
-                                        doc_no,
-                                        code,
-                                        item,
-                                        qty,
-                                        price,
-                                        project,
-                                        type
-                                    )
+                                    (date, doc_no, code, item, qty, price, project, supplier, type)
                                     VALUES
-                                    (
-                                        NOW(),
-                                        %s,
-                                        %s,
-                                        %s,
-                                        %s,
-                                        %s,
-                                        %s,
-                                        'IN'
-                                    )
+                                    (NOW(), %s, %s, %s, %s, %s, %s, %s, 'IN')
                                 """, (
                                     doc_no,
                                     str(row['code']),
                                     row['item'],
                                     row['qty'],
                                     row['price'],
-                                    target_project
+                                    target_project,
+                                    supplier_val
                                 ))
 
                             conn.commit()
@@ -2232,64 +2204,12 @@ if st.session_state.get('logged_in', False):
 
                             if pdf_buffer:
                                 st.session_state["import_pdf"] = pdf_buffer.getvalue()
-                            # =====================================
-                            # إنشاء سند استلام المواد PDF
-                            # =====================================
-
-                            receipt_items = []
-
-                            for _, row in df_upload.iterrows():
-                                receipt_items.append({
-                                    "code": str(row.get("code", "")),
-                                    "item": str(row.get("item", "")),
-                                    "qty": float(row.get("qty", 0)),
-                                    "unit": str(row.get("unit", "")),
-                                    "project": target_project
-                                })
-
-                            pdf_buffer = generate_issue_pdf_web(
-                                recipient="أمين المستودع",
-                                project=target_project,
-                                doc_no=f"IMP-{doc_no}",
-                                title="سند استلام مواد",
-                                cart_items_list=receipt_items
-                            )
-
-                            if pdf_buffer:
-                                st.session_state["import_pdf"] = pdf_buffer.getvalue()
-                                st.session_state["import_pdf_name"] = f"Receipt_{doc_no}.pdf"
-
-                            st.balloons()
-
-                            st.success(
-                                t(
-                                    f"✅ Success! {total_rows} items imported to {target_project}.",
-                                    f"✅ تم الاستيراد بنجاح! تم إضافة {total_rows} صنف إلى {target_project}."
-                                )
-                            )
-
-                        except Exception as e:
-                            st.error(f"❌ Error during import: {e}")
-                            # إظهار رسالة النجاح والبالونات
-                            st.balloons()
-                            st.success(t(f"✅ Success! {total_rows} items imported to {target_project}.", 
-                                         f"✅ تم الاستيراد بنجاح! تم إضافة {total_rows} صنف إلى {target_project}."))
-                            if st.session_state.get("import_pdf"):
-
-                                st.download_button(
-                                    label="📄 تحميل سند الاستلام PDF",
-                                    data=st.session_state["import_pdf"],
-                                    file_name=st.session_state["import_pdf_name"],
-                                    mime="application/pdf",
-                                    width="stretch",
-                                    type="primary"
-                                )
                             
-                           
-                         
+                            st.success(t("Data imported successfully!", "تم استيراد البيانات وحفظ اسم المورد بنجاح!"))
+                            st.rerun()
 
                         except Exception as e:
-                            st.error(f"❌ Error during import: {e}")
+                            st.error(f"خطأ أثناء الاستيراد: {e}")
 
             # --- قسم التصدير ---
             with tab2:
