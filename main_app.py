@@ -1984,12 +1984,11 @@ if st.session_state.get('logged_in', False):
             params = (f"%{simple_name}%",)
 
         # =========================================================
-        # 📥 1. تقرير الوارد (إضافات المخزن)
+        # 📥 1. تقرير الوارد (إضافات المخزن) + ميزة الحذف والتراجع
         # =========================================================
         if report_type == t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"):
             st.subheader(f"📥 {report_type} - {selected_project}")
             
-            # استعلام جلب المورد في تقرير الوارد
             query = f"""
                 SELECT 
                     date as 'التاريخ', 
@@ -2021,6 +2020,48 @@ if st.session_state.get('logged_in', False):
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
+                    
+                    # 🔴 قسم حذف وتعديل المستندات الخاطئة داخل التقرير
+                    st.write("")
+                    st.subheader(t("🗑️ Delete / Reverse Incoming Document", "🗑️ حذف والتراجع عن مستند وارد"))
+                    
+                    # قائمة منسدلة تحتوي على أرقام المستندات الظاهرة في الجدول لسهولة الاختيار
+                    doc_list = [str(d) for d in df_in['رقم المستند'].unique()]
+                    selected_doc_to_delete = st.selectbox(t("Select Document Number to Delete", "اختر رقم المستند المراد حذفه نهائياً"), [""] + doc_list)
+                    
+                    if selected_doc_to_delete != "":
+                        st.warning(t(f"Warning: Deleting document {selected_doc_to_delete} will subtract its quantities from inventory!", f"تنبيه: حذف المستند رقم {selected_doc_to_delete} سيقوم بخصم كمياته من المخزن فوراً!"))
+                        
+                        if st.button(t("Confirm Permanent Delete", "🗑️ تأكيد الحذف النهائي والتراجع"), use_container_width=True, type="primary"):
+                            try:
+                                conn = get_db_connection()
+                                cursor = conn.cursor()
+                                
+                                # 1. جلب الحركات الخاصة بالمستند المختار لتعديل المخزن
+                                cursor.execute("SELECT code, qty, project FROM transactions WHERE doc_no=%s AND type='IN'", (selected_doc_to_delete,))
+                                items_to_subtract = cursor.fetchall()
+                                
+                                if items_to_subtract:
+                                    for code_val, qty_val, proj_val in items_to_subtract:
+                                        # خصم الكمية التي تم إدخالها بالخطأ (دون النزول تحت الصفر)
+                                        cursor.execute(
+                                            "UPDATE inventory SET qty = GREATEST(0, qty - %s) WHERE code=%s AND project=%s",
+                                            (qty_val, code_val, proj_val)
+                                        )
+                                
+                                # 2. حذف الحركة من جدول الحركات تماماً
+                                cursor.execute("DELETE FROM transactions WHERE doc_no=%s AND type='IN'", (selected_doc_to_delete,))
+                                
+                                conn.commit()
+                                conn.close()
+                                
+                                st.success(t(f"Document {selected_doc_to_delete} deleted and inventory balanced successfully!", f"✅ تم حذف المستند رقم {selected_doc_to_delete} وتعديل المخزن بنجاح!"))
+                                import time
+                                time.sleep(1)
+                                st.rerun()
+                                
+                            except Exception as delete_error:
+                                st.error(f"خطأ أثناء الحذف من قاعدة البيانات: {delete_error}")
                 else:
                     st.info(t("No incoming records found", "لا توجد سجلات وارد لهذا المشروع"))
             except Exception as e:
@@ -2032,7 +2073,6 @@ if st.session_state.get('logged_in', False):
         elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
             st.subheader(f"📤 {report_type} - {selected_project}")
             
-            # استعلام جلب اسم المستلم في تقرير الصادر بترتيب متناسق مع الوارد
             query = f"""
                 SELECT 
                     date as 'التاريخ', 
