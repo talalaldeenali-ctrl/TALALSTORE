@@ -2207,16 +2207,19 @@ if st.session_state.get('logged_in', False):
                             conn.commit()
                             conn.close()
 
-                            pdf_buffer = generate_issue_pdf_web(
-                                recipient="المستودع",
-                                project=target_project,
-                                doc_no=doc_no,
-                                title="سند استلام مواد",
-                                cart_items_list=imported_items
-                            )
-
-                            if pdf_buffer:
-                                st.session_state["import_pdf"] = pdf_buffer.getvalue()
+                            # إنشاء الـ PDF بأمان وإغلاق البلوك بالكامل
+                            try:
+                                pdf_buffer = generate_issue_pdf_web(
+                                    recipient="المستودع",
+                                    project=target_project,
+                                    doc_no=doc_no,
+                                    title="سند استلام مواد",
+                                    cart_items_list=imported_items
+                                )
+                                if pdf_buffer:
+                                    st.session_state["import_pdf"] = pdf_buffer.getvalue()
+                            except Exception as pdf_error:
+                                st.warning(f"تم الاستيراد بنجاح ولكن فشل توليد ملف PDF: {pdf_error}")
                             
                             st.success(t("✅ Data imported successfully!", f"✅ تم استيراد البيانات بنجاح بمستند رقم ({doc_no}) وتحديث المخزن!"))
                             st.rerun()
@@ -2256,13 +2259,6 @@ if st.session_state.get('logged_in', False):
                                 st.session_state["last_doc_no"] = None
                                 if "import_pdf" in st.session_state:
                                     del st.session_state["import_pdf"]
-                                    
-                                st.success(t(f"Successfully deleted import document {last_doc} and adjusted inventory!", f"🗑️ تم حذف مستند الاستيراد رقم {last_doc} بنجاح وتعديل كميات المخزن تلقائياً!"))
-                                time.sleep(1)
-                                st.rerun()
-                                
-
-
             # --- قسم التصدير ---
             with tab2:
                 st.subheader(t("Export Project Data", "تصدير بيانات المشروع"))
@@ -2279,10 +2275,17 @@ if st.session_state.get('logged_in', False):
                             label=t("Download Excel File", "تحميل ملف الإكسل"),
                             data=out_ex.getvalue(),
                             file_name=f"Inventory_{target_project}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
                         )
                     else:
                         st.warning(t("No data found for this project.", "لا توجد بيانات مسجلة لهذا المشروع."))
+
+                                    
+
+                                
+
+
     elif menu_key == "settings":
         if st.session_state['user_role'] == 'admin':
             t1, t2, t3 = st.tabs([
