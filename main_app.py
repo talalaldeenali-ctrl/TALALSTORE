@@ -1771,12 +1771,11 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: الكود '{excel_code}' غير موجود نهائياً بالمخزن.")
                                     continue
                                 
-                                # 🌟 الحل النهائي للخطأ: استدعاء السجل الأول المطابق كقاموس صحيح
                                 r = db_items[0]
                                 max_available = float(r.get('qty', 0))
                                 item_proj = (r.get('project_name') or r.get('project') or "").strip()
 
-                                # تطبيق نفس المنطق الذكي على الإكسل لتجنب أخطاء كتابة المشاريع
+                                # تطبيق المنطق الذكي على الإكسل لتجنب أخطاء كتابة المشاريع
                                 proj_sel_clean = project_name.lower().replace("-", " ").split()
                                 item_proj_clean = item_proj.lower().replace("-", " ")
                                 
@@ -1791,113 +1790,176 @@ if st.session_state.get('logged_in', False):
                                     error_logs.append(f"السطر {line_no}: المادة '{r['item']}' كميتها المطلوبة ({excel_qty}) أكبر من المتاح ({max_available}).")
                                     continue
 
+                                # 💡 تم إصلاح وإغلاق الحقل المنقطع هنا
                                 st.session_state['cart_items'].append({
-                                    'code': r['code'], 'item': r['item'], 'project': item_proj,
-                                    'qty': excel_qty, 'unit': r['unit'], 'price': r['price'], 'supplier': r['supplier']
+                                    'code': r['code'], 
+                                    'item': r['item'], 
+                                    'project': item_proj,
+                                    'qty': excel_qty, 
+                                    'unit': r['unit'], 
+                                    'price': r['price'], 
+                                    'supplier': r.get('supplier', '')
                                 })
                                 success_count += 1
-
+                            
                             conn.close()
-
+                            
+                            # عرض النتائج والأخطاء إن وجدت
                             if success_count > 0:
-                                st.success(t(f"Successfully added {success_count} items to cart!", f"تم إضافة {success_count} مواد إلى السلة بنجاح!"))
-                            
+                                st.success(t(f"Successfully added {success_count} items to cart!", f"✅ تم إضافة {success_count} بند إلى السلة بنجاح!"))
                             if error_logs:
-                                with st.expander(t("⚠️ View Import Warnings", "⚠️ عرض تحذيرات الاستيراد والأخطاء")):
-                                    for err in error_logs:
-                                        st.write(err)
-                            
+                                with st.expander(t("View Import Warnings", "عرض تنبيهات وأخطاء الاستيراد")):
+                                    for log in error_logs:
+                                        st.warning(log)
                             st.rerun()
-                            
-            except Exception as e:
-                st.error(f"حدث خطأ أثناء قراءة الملف المرفوع: {e}")
+            except Exception as excel_err:
+                st.error(f"خطأ أثناء قراءة ملف الإكسل: {excel_err}")
+        # --- 🌐 تقسيم الصفحة لتبويبين: السلة الحالية والمرتجعات ---
+        tab_cart, tab_return = st.tabs([t("🛒 Current Cart", "🛒 السلة الحالية"), t("↩️ Return Invoice", "↩️ مرتجع فواتير الصرف")])
 
+        # =========================================================
+        # 🛒 التبويب الأول: السلة وعملية الحفظ الأصلية
+        # =========================================================
+        with tab_cart:
+            if st.session_state['cart_items']:
+                st.subheader(t("🛒 Selected Items", "🛒 المواد المختارة في السلة"))
+                
+                for i, item in enumerate(st.session_state['cart_items']):
+                    c1, c2, c3, c4 = st.columns([3, 1, 1, 0.5])
+                    with c1:
+                        st.write(f"**{item['item']}** ({item['code']})")
+                    with c2:
+                        st.write(f"{t('Qty', 'الكمية')}: {item['qty']}")
+                    with c3:
+                        st.write(f"{item['price']} {t('SAR', 'ريال')}")
+                    with c4:
+                        if st.button("❌", key=f"del_{i}"):
+                            st.session_state['cart_items'].pop(i)
+                            st.rerun()
+                
+                st.divider()
+                
+                # --- 🔘 أزرار التحكم ---
+                col_clear, col_save = st.columns(2)
 
-
-
-                            
-                with c_info:
-                        is_main = "main warehouse" in item_proj.lower()
-                        color = "blue" if is_main else "green"
-                        label = "المخزن الرئيسي" if is_main else item_proj
-                        st.markdown(f"**{r['item']}** | `{r['code']}`")
-                        
-                        # تمييز الكمية الصفرية باللون الأحمر لتنبيه المسؤول أثناء البحث
-                        if max_available <= 0:
-                            st.markdown(f":[{color}][المصدر: {label}] (:red[{t('Out of Stock', 'نفذت الكمية')}: 0])")
-                        else:
-                            st.markdown(f":[{color}][المصدر: {label}] ({t('Stock', 'المخزون')}: {r['qty']})")
-             
-        # --- 🛒 عرض محتويات السلة ---
-        if st.session_state['cart_items']:
-            st.divider()
-            st.subheader(t("🛒 Selected Items", "🛒 المواد المختارة في السلة"))
-            
-            for i, item in enumerate(st.session_state['cart_items']):
-                c1, c2, c3, c4 = st.columns([3, 1, 1, 0.5])
-                with c1:
-                    st.write(f"**{item['item']}** ({item['code']})")
-                with c2:
-                    st.write(f"{t('Qty', 'الكمية')}: {item['qty']}")
-                with c3:
-                    st.write(f"{item['price']} {t('SAR', 'ريال')}")
-                with c4:
-                    if st.button("❌", key=f"del_{i}"):
-                        st.session_state['cart_items'].pop(i)
+                with col_clear:
+                    if st.button(t("🗑 Clear Cart", "🗑 تفريغ السلة"), key="clear_cart_btn", use_container_width=True):
+                        st.session_state['cart_items'] = []
                         st.rerun()
-            
-            st.divider()
-            
-            # --- 🔘 أزرار التحكم (تظهر فقط إذا كانت السلة بها مواد) ---
-            col_clear, col_save = st.columns(2)
 
-            with col_clear:
-                if st.button(t("🗑 Clear Cart", "🗑 تفريغ السلة"), width="content", key="clear_cart_btn"):
+                with col_save:
+                    if st.button(t("✅ Save & Print", "✅ حفظ وطباعة"), type="primary", key="save_invoice_btn", use_container_width=True):
+                        if not recipient:
+                            st.error(t("Recipient required", "اسم المستلم مطلوب"))
+                        elif not project_name:
+                            st.error(t("Project required", "المشروع مطلوب"))
+                        else:
+                            last_val = get_setting("last_inv")
+                            new_no = int(last_val if last_val and str(last_val).isdigit() else 0) + 1
+                            formatted_inv_no = f"{new_no:04d}"
+
+                            if save_invoice_web(recipient, project_name, st.session_state['cart_items']):
+                                set_setting("last_inv", str(new_no))
+                                pdf_buffer = generate_issue_pdf_web(recipient, project_name, formatted_inv_no, t("Issue Note", "سند صرف"), st.session_state['cart_items'])
+                                
+                                if pdf_buffer:
+                                    st.session_state['last_pdf'] = pdf_buffer.getvalue()
+                                    st.session_state['last_inv_no'] = formatted_inv_no
+                                    st.success(f"✅ تم الحفظ برقم: {formatted_inv_no}")
+                                    st.rerun()
+            else:
+                st.info(t("Cart is empty. Search and add items above.", "السلة فارغة. ابحث وأضف مواد أعلاه."))
+
+            # --- 📄 قسم تحميل الملف بعد الحفظ بنجاح ---
+            if st.session_state.get("last_pdf"):
+                st.write("---")
+                st.download_button(
+                    label=t("📥 Download PDF Now", "📥 تحميل الفاتورة الآن"),
+                    data=st.session_state["last_pdf"],
+                    file_name=f"Invoice_{st.session_state.get('last_inv_no','0001')}.pdf",
+                    mime="application/pdf",
+                    key="download_pdf_btn",
+                    use_container_width=True
+                )
+
+                if st.button(t("🆕 New Invoice", "🆕 فاتورة جديدة"), key="new_inv_btn", use_container_width=True):
                     st.session_state['cart_items'] = []
+                    st.session_state['last_pdf'] = None
                     st.rerun()
 
-            with col_save:
-                if st.button(t("✅ Save & Print", "✅ حفظ وطباعة"), width="content", type="primary", key="save_invoice_btn"):
-                    if not recipient:
-                        st.error(t("Recipient required", "اسم المستلم مطلوب"))
-                    elif not project_name:
-                        st.error(t("Project required", "المشروع مطلوب"))
-                    else:
-                        # منطق الحفظ وتوليد PDF
-                        last_val = get_setting("last_inv")
-                        new_no = int(last_val if last_val and str(last_val).isdigit() else 0) + 1
-                        formatted_inv_no = f"{new_no:04d}"
-
-                        if save_invoice_web(recipient, project_name, st.session_state['cart_items']):
-                            set_setting("last_inv", str(new_no))
-                            pdf_buffer = generate_issue_pdf_web(recipient, project_name, formatted_inv_no, t("Issue Note", "سند صرف"), st.session_state['cart_items'])
+        # =========================================================
+        # ↩️ التبويب الثاني: النظام المحاسبي لإرجاع فواتير الصرف (المرتجع)
+        # =========================================================
+        with tab_return:
+            st.subheader(t("↩️ Process Material Return", "↩️ معالجة مرتجع صرف المواد"))
+            
+            # حقل إدخال رقم مستند الصادر للمراجعة
+            return_doc_no = st.text_input(t("Enter Invoice / Document Number to Return", "أدخل رقم الفاتورة أو المستند المراد إرجاعه للمستودع"), key="return_doc_input")
+            
+            if return_doc_no:
+                # جلب بنود الفاتورة المدخلة للتأكد من صحتها وعرضها قبل المرتجع
+                conn = get_db_connection()
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM transactions WHERE doc_no=%s AND type='OUT'", (return_doc_no,))
+                invoice_items = cursor.fetchall()
+                conn.close()
+                
+                if invoice_items:
+                    st.info(f"📋 تم العثور على {len(invoice_items)} بند تابع للمستند رقم {return_doc_no}")
+                    
+                    # تحويل البيانات لجدول للعرض المعاين
+                    df_return_preview = pd.DataFrame(invoice_items)
+                    df_return_preview = df_return_preview.rename(columns={
+                        'item': 'المادة', 'code': 'الكود', 'qty': 'الكمية المصرومة', 'project': 'المشروع', 'person': 'المستلم'
+                    })
+                    st.dataframe(df_return_preview[['المادة', 'الكود', 'الكمية المصرومة', 'المشروع', 'المستلم']], use_container_width=True)
+                    
+                    # زر تنفيذ عملية المرتجع الرسمي
+                    if st.button(t("Confirm Return Items to Stock", "🔄 تأكيد إرجاع المواد وعكس القيد بالمخزن"), type="primary", use_container_width=True, key="confirm_return_btn"):
+                        try:
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
                             
-                            if pdf_buffer:
-                                st.session_state['last_pdf'] = pdf_buffer.getvalue()
-                                st.session_state['last_inv_no'] = formatted_inv_no
-                                st.success(f"✅ تم الحفظ برقم: {formatted_inv_no}")
-                                st.rerun() # تحديث لإظهار زر التحميل
+                            for row in invoice_items:
+                                # 1. إعادة إرجاع الكمية المصرومة وإضافتها مجدداً للمخزن (تحديث المخزون المتاح)
+                                cursor.execute(
+                                    "UPDATE inventory SET qty = qty + %s WHERE code=%s AND project=%s",
+                                    (row['qty'], row['code'], row['project'])
+                                )
+                                
+                                # 2. تسجيل حركة مرتجع رسمية في جدول الحركات (حركة IN من نوع مرتجع مستودعي لتوثيق المستند)
+                                cursor.execute("""
+                                    INSERT INTO transactions
+                                    (date, doc_no, code, item, qty, price, project, supplier, type)
+                                    VALUES
+                                    (NOW(), %s, %s, %s, %s, %s, %s, %s, 'IN')
+                                """, (
+                                    f"RET-{return_doc_no}",
+                                    row['code'],
+                                    row['item'],
+                                    row['qty'],
+                                    row['price'],
+                                    row['project'],
+                                    f"مرتجع من {row['person']}"
+                                ))
+                                
+                                # 3. تعديل أو إلغاء المستند الصادر الأصلي لمنع تكرار إرجاعه
+                                cursor.execute("DELETE FROM transactions WHERE id=%s", (row['id'],))
+                                
+                            conn.commit()
+                            conn.close()
+                            
+                            st.success(t(f"Invoice {return_doc_no} reversed successfully! All quantities returned to stock.", f"✅ تم معالجة المرتجع للمستند {return_doc_no} بنجاح، وأُعيدت كافة المواد للمخزن."))
+                            import time
+                            time.sleep(1.5)
+                            st.rerun()
+                            
+                        except Exception as return_err:
+                            st.error(f"خطأ أثناء تنفيذ المرتجع: {return_err}")
+                else:
+                    st.warning(t("No outgoing invoice found with this number.", "لم يتم العثور على أي فاتورة صرف تحمل هذا الرقم في النظام."))
 
-        else:
-            # رسالة تظهر فقط إذا كانت السلة فارغة تماماً
-            st.info(t("Cart is empty. Search and add items above.", "السلة فارغة. ابحث وأضف مواد أعلاه."))
-
-        # --- 📄 قسم تحميل الملف (يظهر بعد الحفظ بنجاح) ---
-        if st.session_state.get("last_pdf"):
-            st.write("---")
-            st.download_button(
-                label=t("📥 Download PDF Now", "📥 تحميل الفاتورة الآن"),
-                data=st.session_state["last_pdf"],
-                file_name=f"Invoice_{st.session_state.get('last_inv_no','0001')}.pdf",
-                mime="application/pdf",
-                key="download_pdf_btn"
-            )
-
-            if st.button(t("🆕 New Invoice", "🆕 فاتورة جديدة"), key="new_inv_btn"):
-                st.session_state['cart_items'] = []
-                st.session_state['last_pdf'] = None
-                st.rerun()
-
+             
     # ======================================
         # ==============================
     elif menu_key == "invoice_mgmt":
