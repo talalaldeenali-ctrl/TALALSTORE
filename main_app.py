@@ -2131,7 +2131,6 @@ if st.session_state.get('logged_in', False):
                         btn_confirm = st.button(t(f"Confirm Import {total_rows} Items", f"تأكيد استيراد {total_rows} بند"), use_container_width=True)
                     
                     with col_btn2:
-                        # 🔴 زر الحذف للتراجع عن آخر عملية استيراد مكررة أو خاطئة
                         btn_delete_last = st.button(t("Delete Last Import", "🗑️ حذف آخر عملية استيراد"), use_container_width=True, type="secondary")
 
                     # 1. تنفيذ عملية الاستيراد عند الضغط على تأكيد
@@ -2202,7 +2201,7 @@ if st.session_state.get('logged_in', False):
                                     supplier_val
                                 ))
 
-                            # حفظ رقم المستند الأخير في الجلسة لإتاحة حذفه فوراً إذا رغب المستخدم
+                            # حفظ رقم المستند الأخير في الجلسة لإتاحة حذفه فوراً
                             st.session_state["last_doc_no"] = doc_no
 
                             conn.commit()
@@ -2232,6 +2231,7 @@ if st.session_state.get('logged_in', False):
                             st.warning(t("No recent import transaction found to delete in this session.", "لا توجد عملية استيراد حديثة مسجلة في هذه الجلسة لحذفها."))
                         else:
                             try:
+                                import time
                                 conn = get_db_connection()
                                 cursor = conn.cursor()
                                 
@@ -2241,7 +2241,6 @@ if st.session_state.get('logged_in', False):
                                 
                                 if items_to_subtract:
                                     for code_val, qty_val, proj_val in items_to_subtract:
-                                        # خصم الكمية المستوردة بالخطأ من جدول المخزون
                                         cursor.execute(
                                             "UPDATE inventory SET qty = GREATEST(0, qty - %s) WHERE code=%s AND project=%s",
                                             (qty_val, code_val, proj_val)
@@ -2259,6 +2258,10 @@ if st.session_state.get('logged_in', False):
                                     del st.session_state["import_pdf"]
                                     
                                 st.success(t(f"Successfully deleted import document {last_doc} and adjusted inventory!", f"🗑️ تم حذف مستند الاستيراد رقم {last_doc} بنجاح وتعديل كميات المخزن تلقائياً!"))
+                                time.sleep(1)
+                                st.rerun()
+                                
+
 
             # --- قسم التصدير ---
             with tab2:
