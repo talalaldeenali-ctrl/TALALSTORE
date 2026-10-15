@@ -2259,27 +2259,19 @@ if st.session_state.get('logged_in', False):
                                 st.session_state["last_doc_no"] = None
                                 if "import_pdf" in st.session_state:
                                     del st.session_state["import_pdf"]
+                                    
+                                st.success(t(f"Successfully deleted import document {last_doc} and adjusted inventory!", f"🗑️ تم حذف مستند الاستيراد رقم {last_doc} بنجاح وتعديل كميات المخزن تلقائياً!"))
+                                time.sleep(1)
+                                st.rerun()
+                                
+                            except Exception as e:
+                                st.error(f"خطأ أثناء حذف البيانات: {e}")
+
             # --- قسم التصدير ---
             with tab2:
                 st.subheader(t("Export Project Data", "تصدير بيانات المشروع"))
                 if st.button(t(f"Prepare Export for {target_project}", f"تجهيز ملف تصدير لـ {target_project}")):
                     query = "SELECT * FROM inventory WHERE project = %s"
-                    df_ex = pd.read_sql(query, engine, params=(target_project,))
-                    
-                    if not df_ex.empty:
-                        import io
-                        out_ex = io.BytesIO()
-                        with pd.ExcelWriter(out_ex, engine='xlsxwriter') as wr: 
-                            df_ex.to_excel(wr, index=False)
-                        st.download_button(
-                            label=t("Download Excel File", "تحميل ملف الإكسل"),
-                            data=out_ex.getvalue(),
-                            file_name=f"Inventory_{target_project}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
-                    else:
-                        st.warning(t("No data found for this project.", "لا توجد بيانات مسجلة لهذا المشروع."))
 
                                     
 
