@@ -1956,122 +1956,120 @@ if st.session_state.get('logged_in', False):
         st.divider()
     # 2. تأكد أن هذا السطر (elif menu...) يبدأ في بداية السطر تماماً (بدون مسافات قبله)
         # ======================================
-elif menu_key == "reports":
-    st.header(t("📊 Reports & Analytics", "📊 التقارير والتحليلات"))
-    
-    # 1. جلب المشاريع
-    user_projects = get_user_projects(st.session_state['username'])
-    project_options = [t("All Projects", "كل المشاريع")] + user_projects
-    selected_project = st.selectbox(t("Filter by Project", "تصفية حسب المشروع"), project_options)
-    
-    # 2. اختيار نوع التقرير
-    report_type = st.selectbox(
-        t("Select Report Type", "اختر نوع التقرير"),
-        [
-            t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"),
-            t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)")
-        ]
-    )
-    st.divider()
-    
-    # تجهيز الاستعلام: استخدام LIKE مع البحث عن جزء من النص لضمان المطابقة
-    if selected_project == t("All Projects", "كل المشاريع"):
-        project_filter = ""
-        params = ()
-    else:
-        # نأخذ أول كلمة إنجليزية من اسم المشروع (مثل VILLAS) لضمان البحث
-        simple_name = selected_project.split(' ')[0].strip()
-        project_filter = "AND project LIKE %s"
-        params = (f"%{simple_name}%",)
-
-    # =========================================================
-    # 📥 1. تقرير الوارد (إضافات المخزن)
-    # =========================================================
-    if report_type == t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"):
-        st.subheader(f"📥 {report_type} - {selected_project}")
+    elif menu_key == "reports":
+        st.header(t("📊 Reports & Analytics", "📊 التقارير والتحليلات"))
         
-        # 💡 ملاحظة: إذا استمر ظهور None، يرجى التأكد من أن العمود في قاعدة البيانات اسمه 'supplier' وليس 'supplier_name' أو 'person'
-        query = f"""
-            SELECT 
-                date as 'التاريخ', 
-                doc_no as 'رقم المستند', 
-                code as 'الكود', 
-                item as 'المادة', 
-                qty as 'الكمية', 
-                price as 'السعر', 
-                project as 'المشروع', 
-                supplier as 'المورد' 
-            FROM transactions 
-            WHERE type='IN' {project_filter} 
-            ORDER BY date DESC
-        """
-        try:
-            df_in = pd.read_sql(query, engine, params=params)
-            if not df_in.empty:
-                st.dataframe(df_in, use_container_width=True)
-                
-                # 🟢 تصدير إلى Excel
-                buffer_excel = io.BytesIO()
-                with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
-                    df_in.to_excel(writer, sheet_name='Incoming_Report', index=False)
-                
-                st.download_button(
-                    label="📥 تصدير تقرير الوارد الحالي إلى Excel",
-                    data=buffer_excel.getvalue(),
-                    file_name=f"Incoming_Report_{selected_project}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            else:
-                st.info(t("No incoming records found", "لا توجد سجلات وارد لهذا المشروع"))
-        except Exception as e:
-            st.error(f"خطأ في قاعدة البيانات: {e}")
-
-    # =========================================================
-    # 📤 2. تقرير الصادر (حركات الصرف)
-    # =========================================================
-    elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
-        st.subheader(f"📤 {report_type} - {selected_project}")
+        # 1. جلب المشاريع
+        user_projects = get_user_projects(st.session_state['username'])
+        project_options = [t("All Projects", "كل المشاريع")] + user_projects
+        selected_project = st.selectbox(t("Filter by Project", "تصفية حسب المشروع"), project_options)
         
-        # تم ترتيب الأعمدة هنا ليتطابق مظهر الصادر مع مظهر الوارد ويظهر 'اسم المستلم' في النهاية
-        query = f"""
-            SELECT 
-                date as 'التاريخ', 
-                doc_no as 'رقم المستند', 
-                code as 'الكود', 
-                item as 'المادة', 
-                qty as 'الكمية', 
-                price as 'السعر', 
-                project as 'المشروع',
-                person as 'اسم المستلم', 
-                (qty * price) as 'total'
-            FROM transactions 
-            WHERE type='OUT' {project_filter} 
-            ORDER BY date DESC
-        """
-        try:
-            df_out = pd.read_sql(query, engine, params=params)
-            if not df_out.empty:
-                # تعديل اسم عمود الإجمالي للعربية في العرض فقط
-                df_display = df_out.rename(columns={'total': 'الإجمالي'})
-                st.dataframe(df_display, use_container_width=True)
-                
-                # 🟢 تصدير التقرير إلى Excel
-                buffer_excel = io.BytesIO()
-                with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
-                    df_out.to_excel(writer, sheet_name='Outgoing_Report', index=False)
-                
-                st.download_button(
-                    label="📥 تصدير تقرير الصادر الحالي إلى Excel",
-                    data=buffer_excel.getvalue(),
-                    file_name=f"Outgoing_Report_{selected_project}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            else:
-                st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
-        except Exception as e:
-            st.error(f"خطأ في قاعدة البيانات: {e}")
+        # 2. اختيار نوع التقرير
+        report_type = st.selectbox(
+            t("Select Report Type", "اختر نوع التقرير"),
+            [
+                t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"),
+                t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)")
+            ]
+        )
+        st.divider()
+        
+        # تجهيز الاستعلام
+        if selected_project == t("All Projects", "كل المشاريع"):
+            project_filter = ""
+            params = ()
+        else:
+            simple_name = selected_project.split(' ')[0].strip()
+            project_filter = "AND project LIKE %s"
+            params = (f"%{simple_name}%",)
+
+        # =========================================================
+        # 📥 1. تقرير الوارد (إضافات المخزن)
+        # =========================================================
+        if report_type == t("Incoming Logistics (IN)", "تقرير الوارد (إضافات المخزن)"):
+            st.subheader(f"📥 {report_type} - {selected_project}")
+            
+            # استعلام جلب المورد في تقرير الوارد
+            query = f"""
+                SELECT 
+                    date as 'التاريخ', 
+                    doc_no as 'رقم المستند', 
+                    code as 'الكود', 
+                    item as 'المادة', 
+                    qty as 'الكمية', 
+                    price as 'السعر', 
+                    project as 'المشروع', 
+                    supplier as 'المورد' 
+                FROM transactions 
+                WHERE type='IN' {project_filter} 
+                ORDER BY date DESC
+            """
+            try:
+                df_in = pd.read_sql(query, engine, params=params)
+                if not df_in.empty:
+                    st.dataframe(df_in, use_container_width=True)
+                    
+                    # تصدير إلى Excel
+                    buffer_excel = io.BytesIO()
+                    with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
+                        df_in.to_excel(writer, sheet_name='Incoming_Report', index=False)
+                    
+                    st.download_button(
+                        label="📥 تصدير تقرير الوارد الحالي إلى Excel",
+                        data=buffer_excel.getvalue(),
+                        file_name=f"Incoming_Report_{selected_project}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                else:
+                    st.info(t("No incoming records found", "لا توجد سجلات وارد لهذا المشروع"))
+            except Exception as e:
+                st.error(f"خطأ في قاعدة البيانات: {e}")
+
+        # =========================================================
+        # 📤 2. تقرير الصادر (حركات الصرف)
+        # =========================================================
+        elif report_type == t("Outgoing Transactions (OUT)", "تقرير الصادر (حركات الصرف)"):
+            st.subheader(f"📤 {report_type} - {selected_project}")
+            
+            # استعلام جلب اسم المستلم في تقرير الصادر بترتيب متناسق مع الوارد
+            query = f"""
+                SELECT 
+                    date as 'التاريخ', 
+                    doc_no as 'رقم المستند', 
+                    code as 'الكود', 
+                    item as 'المادة', 
+                    qty as 'الكمية', 
+                    price as 'السعر', 
+                    project as 'المشروع',
+                    person as 'اسم المستلم', 
+                    (qty * price) as 'total'
+                FROM transactions 
+                WHERE type='OUT' {project_filter} 
+                ORDER BY date DESC
+            """
+            try:
+                df_out = pd.read_sql(query, engine, params=params)
+                if not df_out.empty:
+                    df_display = df_out.rename(columns={'total': 'الإجمالي'})
+                    st.dataframe(df_display, use_container_width=True)
+                    
+                    # تصدير إلى Excel
+                    buffer_excel = io.BytesIO()
+                    with pd.ExcelWriter(buffer_excel, engine='xlsxwriter') as writer:
+                        df_out.to_excel(writer, sheet_name='Outgoing_Report', index=False)
+                    
+                    st.download_button(
+                        label="📥 تصدير تقرير الصادر الحالي إلى Excel",
+                        data=buffer_excel.getvalue(),
+                        file_name=f"Outgoing_Report_{selected_project}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                else:
+                    st.info(t("No outgoing records found", "لا توجد سجلات صرف لهذا المشروع"))
+            except Exception as e:
+                st.error(f"خطأ في قاعدة البيانات: {e}")
        
     elif menu_key == "import_export":
         st.header(t("📥 Import & Export Data", "📥 استيراد وتصدير البيانات"))
